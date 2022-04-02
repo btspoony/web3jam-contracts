@@ -1,0 +1,32 @@
+{
+  "name": "web3jam-contracts",
+  "version": "0.1.0",
+  "description": "Contracts of Web3 Jam",
+  "scripts": {
+    "update:emulator": "flow project deploy --update",
+    "update:testnet": "npx dotenv-cli -e .env.testnet -- flow project deploy --network=testnet -f flow.json -f flow.testnet.json --update"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/btspoony/web3jam-contracts.git"
+  },
+  "keywords": [
+    "Cadence"
+  ],
+  "author": "Tang BoHao<tech@btang.cn>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/btspoony/web3jam-contracts/issues"
+  },
+  "homepage": "https://github.com/btspoony/web3jam-contracts#readme",
+  "engines": {
+    "node": "16.x"
+  },
+  "dependencies": {
+    "cross-env": "^7.0.3",
+    "dotenv": "^16.0.0"
+  },
+  "devDependencies": {
+    "dotenv-cli": "^5.1.0"
+  }
+}
