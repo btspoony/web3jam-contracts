@@ -5,7 +5,6 @@
 			"serviceAccount": "emulator-account"
 		}
 	},
-	"contracts": {},
 	"networks": {
 		"emulator": "127.0.0.1:3569",
 		"mainnet": "access.mainnet.nodes.onflow.org:9000",
@@ -17,5 +16,35 @@
 			"key": "b6c176757b738c405a9c9a16ed7f319cebd541c874f59477b9723ad99bf85f8e"
 		}
 	},
-	"deployments": {}
+	"contracts": {
+		"NonFungibleToken": {
+			"source": "./cadence/contracts/standard/NonFungibleToken.cdc",
+			"aliases": {
+        "testnet": "631e88ae7f1d7c20",
+				"mainnet": "1d7e57aa55817448"
+      }
+		},
+		"MetadataViews": {
+			"source": "./cadence/contracts/standard/MetadataViews.cdc",
+			"aliases": {
+        "testnet": "631e88ae7f1d7c20",
+				"mainnet": "1d7e57aa55817448"
+      }
+		},
+		"VotingStrategy": "./cadence/contracts/VotingStrategy.cdc",
+		"Web3JamInterfaces": "./cadence/contracts/Web3JamInterfaces.cdc",
+		"Web3Jam": "./cadence/contracts/Web3Jam.cdc",
+		"Web3JamPrizeNFT": "./cadence/contracts/Web3JamPrizeNFT.cdc"
+	},
+	"deployments": {
+    "emulator": {
+      "emulator-account": [
+        "NonFungibleToken",
+        "MetadataViews",
+        "Web3JamInterfaces",
+        "Web3Jam"
+      ]
+    }
+	}
 }
+ 
