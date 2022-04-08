@@ -23,16 +23,31 @@ pub contract Web3JamInterfaces {
     }
 
     // a wrapper to contain a address, campaign id
-    pub struct CampaignIdentitier {
-        pub let id: UInt64
+    pub struct CampaignIdentifier {
+        pub let campaignId: UInt64
         pub let address: Address
 
         init (
-            _ id: UInt64,
-            _ address: Address
+            _ address: Address,
+            _ campaignId: UInt64
         ) {
-            self.id = id
             self.address = address
+            self.campaignId = campaignId
+        }
+    }
+
+    // a wrapper to contain a address, campaign id, project id
+    pub struct ProjectIdentifier {
+        pub let campaign: CampaignIdentifier
+        pub let projectId: UInt64
+
+        init (
+            _ address: Address,
+            _ campaignId: UInt64,
+            _ projectId: UInt64
+        ) {
+            self.campaign = CampaignIdentifier(address, campaignId)
+            self.projectId = projectId
         }
     }
 
@@ -68,6 +83,31 @@ pub contract Web3JamInterfaces {
         *  | | \|  |  |___ |  \ |    |  | |___ |___ 
          *******************************************/
 
+    // An interface that every "verifier" must implement. 
+    // A verifier is one of the options 
+    // for example, a "time limit," or a "limited" number
+    // All the current verifiers can be seen inside Web3JamVerifiers.cdc
+    pub struct interface IVerifier {
+        // A function every verifier must implement. 
+        // Will have `assert`s in it to make sure
+        // the user fits some criteria.
+        access(account) fun verify(_ params: {String: AnyStruct})
+    }
+
+    // convert verifiers array to a typed verifiers dictionary
+    access(account) fun buildTypedVerifier(verifiers: [{IVerifier}]): {String: [{IVerifier}]} {
+        let typedVerifiers: {String: [{IVerifier}]} = {}
+        for verifier in verifiers {
+            let identifier = verifier.getType().identifier
+            if typedVerifiers[identifier] == nil {
+                typedVerifiers[identifier] = [verifier]
+            } else {
+                typedVerifiers[identifier]!.append(verifier)
+            }
+        }
+        return typedVerifiers
+    }
+
     // Web3JamHQ Private Interface
     pub resource interface Web3JamHQPrivate {
         // Account Setters
@@ -77,10 +117,14 @@ pub contract Web3JamInterfaces {
     // Web3JamHQ Public Interface
     pub resource interface Web3JamHQPublic {
         // Public Getters
-        pub fun getOpeningCampaignIDs(): [CampaignIdentitier]
+        pub fun getOpeningCampaignIDs(): [CampaignIdentifier]
         pub fun isWhitelisted(_ key: WhiteListKey, account: Address): Bool
         // Account Getters
         access(account) fun borrowHQPrivateRef(): &AnyResource{Web3JamHQPrivate}
+    }
+
+    pub resource interface CampaignsControllerPrivate {
+        // Account Setters
     }
 
     // CampaignsController Public Interface

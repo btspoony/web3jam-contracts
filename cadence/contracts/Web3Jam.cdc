@@ -15,6 +15,9 @@ pub contract Web3Jam {
 
     pub let Web3JamHQStoragePath: StoragePath
     pub let Web3JamHQPublicPath: PublicPath
+    pub let CompaignsControllerStoragePath: StoragePath
+    pub let CompaignsControllerPrivatePath: PrivatePath
+    pub let CompaignsControllerPublicPath: PublicPath
 
     /**    ____ _  _ ____ _  _ ___ ____
        *   |___ |  | |___ |\ |  |  [__
@@ -33,25 +36,57 @@ pub contract Web3Jam {
     
     // total compaign amount
     pub var totalCompaigns: UInt64
+    // total project amount
+    pub var totalProjects: UInt64
 
     /**    ____ _  _ _  _ ____ ___ _ ____ _  _ ____ _    _ ___ _   _
        *   |___ |  | |\ | |     |  | |  | |\ | |__| |    |  |   \_/
         *  |    |__| | \| |___  |  | |__| | \| |  | |___ |  |    |
          ***********************************************************/
     
-    // Campaign
-    pub resource Campaign {
+    // Project
+    pub resource Project {
+        // The `uuid` of this resource
         pub let id: UInt64
 
         init(
-            id: UInt64
         ) {
-            self.id = id
+            self.id = self.uuid
         }
+
+        // --- Getters - Public Interfaces ---
+
+        // --- Setters - Private Interfaces ---
+
+        // --- Setters - Contract Only ---
+
+        // --- Self Only ---
+
+    }
+
+    // Campaign
+    pub resource Campaign {
+        // The `uuid` of this resource
+        pub let id: UInt64
+
+        init(
+        ) {
+            self.id = self.uuid
+        }
+
+        // --- Getters - Public Interfaces ---
+
+        // --- Setters - Private Interfaces ---
+
+        // --- Setters - Contract Only ---
+
+        // --- Self Only ---
+        // access(self) getControllerPublic(): 
+
     }
 
     // Campaigns controller
-    pub resource CampaignsController: Web3JamInterfaces.CampaignsControllerPublic {
+    pub resource CampaignsController: Web3JamInterfaces.CampaignsControllerPublic, Web3JamInterfaces.CampaignsControllerPrivate {
         // get access to hq public
         pub let hq: Capability<&Web3Jam.Web3JamHQ{Web3JamInterfaces.Web3JamHQPublic}>
         // all campaigns you created
@@ -114,6 +149,29 @@ pub contract Web3Jam {
             self.tags.appendAll(tagsToAdd)
         }
 
+        // create a new compain resource
+        pub fun createCompaign(
+            name: String,
+            description: String,
+            image: String,
+            imageHeader: String?,
+            guideUrl: String,
+            registerUrl: String?,
+            sponsors: [Web3JamInterfaces.Sponsor],
+            projectTags: [Web3JamInterfaces.Tag],
+            roleTags: [Web3JamInterfaces.Tag],
+            verifiers: [{Web3JamInterfaces.IVerifier}],
+            _ extensions: {String: AnyStruct}
+        ): UInt64 {
+            // let typedVerifiers = Web3JamInterfaces.buildTypedVerifier(verifiers: verifiers)
+            let campaign <- create Campaign()
+
+            let campainId = campaign.id
+            self.campaigns[campainId] <-! campaign
+
+            return campainId
+        }
+
         // only administrator can set whitelist
         pub fun setHQWhitelisted(_ key: Web3JamInterfaces.WhiteListKey, account: Address, whitelisted: Bool) {
             pre {
@@ -139,7 +197,7 @@ pub contract Web3Jam {
         // whitelisted controller accounts
         access(account) var whitelistedAccounts: {Web3JamInterfaces.WhiteListKey: [Address]}
         // current opening campaign ids
-        access(self) var openingCampaigns: [Web3JamInterfaces.CampaignIdentitier]
+        access(self) var openingCampaigns: [Web3JamInterfaces.CampaignIdentifier]
 
         init(_ admin: Address) {
             self.whitelistedAccounts = {
@@ -150,7 +208,8 @@ pub contract Web3Jam {
         }
 
         // get current opening campaign ids
-        pub fun getOpeningCampaignIDs(): [Web3JamInterfaces.CampaignIdentitier] {
+        pub fun getOpeningCampaignIDs(): [Web3JamInterfaces.CampaignIdentifier] {
+            // TODO update openingCampaigns
             return self.openingCampaigns
         }
 
@@ -194,20 +253,37 @@ pub contract Web3Jam {
 
     init() {
         self.totalCompaigns = 0
+        self.totalProjects = 0
         
         // Set the named paths
-        self.Web3JamHQStoragePath  = /storage/Web3JamWeb3JamHQ
-        self.Web3JamHQPublicPath = /public/Web3JamWeb3JamHQ
+        self.Web3JamHQStoragePath  = /storage/Web3JamHQPath
+        self.Web3JamHQPublicPath = /public/Web3JamHQPath
+        self.CompaignsControllerStoragePath = /storage/Web3JamCompaignsControllerPath
+        self.CompaignsControllerPublicPath = /public/Web3JamCompaignsControllerPath
+        self.CompaignsControllerPrivatePath = /private/Web3JamCompaignsControllerPath
 
+        // Create HQ resource
         self.account.save(
-        // Create an manager resource and save it to storage
             <- create Web3JamHQ(self.account.address),
             to: self.Web3JamHQStoragePath
         )
-        // create a public capability for the manager resource
-        self.account.link<&Web3Jam.Web3JamHQ{Web3JamInterfaces.Web3JamHQPublic}>(
+        let cap = self.account.link<&Web3Jam.Web3JamHQ{Web3JamInterfaces.Web3JamHQPublic}>(
             self.Web3JamHQPublicPath,
             target: self.Web3JamHQStoragePath
+        )
+
+        // Create a compaigns controller
+        self.account.save(
+            <- Web3Jam.createCampaignController(hq: cap!),
+            to: self.CompaignsControllerStoragePath
+        )
+        self.account.link<&Web3Jam.CampaignsController{Web3JamInterfaces.CampaignsControllerPublic}>(
+            self.CompaignsControllerPublicPath,
+            target: self.CompaignsControllerStoragePath
+        )
+        self.account.link<&Web3Jam.CampaignsController{Web3JamInterfaces.CampaignsControllerPrivate}>(
+            self.CompaignsControllerPrivatePath,
+            target: self.CompaignsControllerStoragePath
         )
 
         emit ContractInitialized()

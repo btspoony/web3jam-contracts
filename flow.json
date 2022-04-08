@@ -33,6 +33,7 @@
 		},
 		"VotingStrategy": "./cadence/contracts/VotingStrategy.cdc",
 		"Web3JamInterfaces": "./cadence/contracts/Web3JamInterfaces.cdc",
+		"Web3JamVerifiers": "./cadence/contracts/Web3JamVerifiers.cdc",
 		"Web3Jam": "./cadence/contracts/Web3Jam.cdc",
 		"Web3JamPrizeNFT": "./cadence/contracts/Web3JamPrizeNFT.cdc"
 	},
