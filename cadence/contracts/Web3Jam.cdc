@@ -5,6 +5,7 @@ Web3Jam Main contract
 
 import MetadataViews from "./standard/MetadataViews.cdc"
 import Web3JamInterfaces from "./Web3JamInterfaces.cdc"
+import StateMachine from "./StateMachine.cdc"
 
 pub contract Web3Jam {
 
@@ -26,7 +27,17 @@ pub contract Web3Jam {
 
     // emitted when contract initialized
     pub event ContractInitialized()
+    // --- Project Events ---
 
+    // --- Campaign Events ---
+    pub event CampaignCreated() // TODO
+    pub event CampaignStatusUpdated() // TODO
+
+    // --- Campaigns Controller Events ---
+    pub event SponsorsAdded() // TODO
+    pub event TagsAdded() // TODO
+
+    // --- Web3Jam HQ Events ---
     pub event WhitelistUpdated(key: UInt8, account: Address, whitelisted: Bool)
 
     /**    ____ ___ ____ ___ ____
@@ -68,10 +79,21 @@ pub contract Web3Jam {
     pub resource Campaign {
         // The `uuid` of this resource
         pub let id: UInt64
+        // when created
+        pub let dateCreated: UFix64
+        // who created the campaign
+        pub let host: Address
+        // --- varibles can be modified by host ---
+        
+        // --- varibles of campain status ---
+        
 
         init(
         ) {
             self.id = self.uuid
+
+
+            emit CampaignCreated()
         }
 
         // --- Getters - Public Interfaces ---
@@ -160,10 +182,10 @@ pub contract Web3Jam {
             sponsors: [Web3JamInterfaces.Sponsor],
             projectTags: [Web3JamInterfaces.Tag],
             roleTags: [Web3JamInterfaces.Tag],
-            verifiers: [{Web3JamInterfaces.IVerifier}],
+            verifiers: [{StateMachine.IVerifier, StateMachine.IChecker}],
             _ extensions: {String: AnyStruct}
         ): UInt64 {
-            // let typedVerifiers = Web3JamInterfaces.buildTypedVerifier(verifiers: verifiers)
+            let typedVerifiers = StateMachine.buildTypedStructs(verifiers)
             let campaign <- create Campaign()
 
             let campainId = campaign.id
@@ -207,6 +229,8 @@ pub contract Web3Jam {
             self.openingCampaigns = []
         }
 
+        // --- Getters - Public Interfaces ---
+
         // get current opening campaign ids
         pub fun getOpeningCampaignIDs(): [Web3JamInterfaces.CampaignIdentifier] {
             // TODO update openingCampaigns
@@ -220,6 +244,10 @@ pub contract Web3Jam {
             }
             return false
         }
+
+        // --- Setters - Private Interfaces ---
+
+        // --- Setters - Contract Only ---
 
         // only access by this contract
         access(account) fun setWhitelisted(_ key: Web3JamInterfaces.WhiteListKey, account: Address, whitelisted: Bool) {

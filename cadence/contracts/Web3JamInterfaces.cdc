@@ -83,31 +83,6 @@ pub contract Web3JamInterfaces {
         *  | | \|  |  |___ |  \ |    |  | |___ |___ 
          *******************************************/
 
-    // An interface that every "verifier" must implement. 
-    // A verifier is one of the options 
-    // for example, a "time limit," or a "limited" number
-    // All the current verifiers can be seen inside Web3JamVerifiers.cdc
-    pub struct interface IVerifier {
-        // A function every verifier must implement. 
-        // Will have `assert`s in it to make sure
-        // the user fits some criteria.
-        access(account) fun verify(_ params: {String: AnyStruct})
-    }
-
-    // convert verifiers array to a typed verifiers dictionary
-    access(account) fun buildTypedVerifier(verifiers: [{IVerifier}]): {String: [{IVerifier}]} {
-        let typedVerifiers: {String: [{IVerifier}]} = {}
-        for verifier in verifiers {
-            let identifier = verifier.getType().identifier
-            if typedVerifiers[identifier] == nil {
-                typedVerifiers[identifier] = [verifier]
-            } else {
-                typedVerifiers[identifier]!.append(verifier)
-            }
-        }
-        return typedVerifiers
-    }
-
     // Web3JamHQ Private Interface
     pub resource interface Web3JamHQPrivate {
         // Account Setters
