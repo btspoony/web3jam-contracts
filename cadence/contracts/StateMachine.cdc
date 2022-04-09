@@ -12,10 +12,12 @@ pub contract StateMachine {
 
     // emitted when contract initialized
     pub event ContractInitialized()
+    // emitted when FSM created
+    pub event FSMCreated(fsmId: UInt64, targetIdentifier: String, state: String)
     // emitted when state entered
-    pub event StateEntered(fsmOwner: Address, fsmId: UInt64, targetIdentifier: String, state: String)
+    pub event FSMStateEntered(fsmOwner: Address, fsmId: UInt64, targetIdentifier: String, state: String)
     // emitted when state exited
-    pub event StateExited(fsmOwner: Address, fsmId: UInt64, targetIdentifier: String, state: String)
+    pub event FSMStateExited(fsmOwner: Address, fsmId: UInt64, targetIdentifier: String, state: String)
 
     /**    ____ _  _ _  _ ____ ___ _ ____ _  _ ____ _    _ ___ _   _
        *   |___ |  | |\ | |     |  | |  | |\ | |__| |    |  |   \_/
@@ -69,15 +71,11 @@ pub contract StateMachine {
     // FSM transition
     pub struct StateTransition {
         pub let next: String
-        pub let check: {IChecker}
-        pub let enterActions: [{IAction}]
-        pub let exitActions: [{IAction}]
+        pub let checker: {IChecker}
         
-        init(next: String, check: {IChecker}, enterActions: [{IAction}]?, exitActions: [{IAction}]?) {
+        init(next: String, checker: {IChecker}) {
             self.next = next
-            self.check = check
-            self.enterActions = enterActions ?? []
-            self.exitActions = exitActions ?? []
+            self.checker = checker
         }
     }
 
@@ -85,10 +83,14 @@ pub contract StateMachine {
     pub struct StateDefinition {
         pub let name: String
         pub let transitions: [StateTransition]
+        pub let enterActions: [{IAction}]
+        pub let exitActions: [{IAction}]
 
-        init(_ name: String, transitions: [StateTransition]) {
+        init(_ name: String, transitions: [StateTransition], enterActions: [{IAction}]?, exitActions: [{IAction}]?) {
             self.name = name
             self.transitions = transitions
+            self.enterActions = enterActions ?? []
+            self.exitActions = exitActions ?? []
         }
     }
 
@@ -127,13 +129,51 @@ pub contract StateMachine {
         // ------ methods ------
         // check if fsm will go to next state 
         pub fun checkNext(_ params: {String: AnyStruct}): CheckResult {
-            // TODO
-            return CheckResult(false, nil)
+            let stateDef = self.states[self.currentState] ?? panic("Current state is not defined.")
+
+            var changed = false
+            var next: String? = nil
+            // check all transition
+            for transition in stateDef.transitions {
+                if transition.checker.check(params) {
+                    changed = true
+                    next = transition.next
+                    break
+                }
+            }
+            return CheckResult(changed, next)
         }
 
         // execute state machine to next state 
         access(account) fun executeNext(_ params: {String: AnyStruct}) {
-            // TODO
+            let ret = self.checkNext(params)
+            assert(ret.changed, message: "Failed to execute and state is not chanaged.")
+            assert(ret.next != nil, message: "Failed to get next state.")
+
+            let currStateDef = self.states[self.currentState] ?? panic("Current state is not defined.")
+            let nextStateDef = self.states[ret.next!] ?? panic("Next state is not defined.")
+            let fsmOwner = self.owner!.address
+
+            // exec current state exit actions
+            for action in currStateDef.exitActions {
+                action.execute(params)
+            }
+            // emit last Event
+            emit FSMStateExited(fsmOwner: fsmOwner, fsmId: self.uuid, targetIdentifier: self.targetIdentifier, state: self.currentState)
+
+            // exec next state exit actions
+            for action in nextStateDef.enterActions {
+                action.execute(params)
+            }
+
+            // emit next Event
+            emit FSMStateEntered(fsmOwner: fsmOwner, fsmId: self.uuid, targetIdentifier: self.targetIdentifier, state: ret.next!)
+
+            // update state
+            self.lastState = self.currentState
+            self.currentState = ret.next!
+            // add to log
+            self.stateLogs.append(StateLog(ret.next!, getCurrentBlock().timestamp))
         }
 
         // initialize
@@ -146,6 +186,9 @@ pub contract StateMachine {
             self.currentState = start
             self.lastState = nil
             self.stateLogs = [StateLog(start, getCurrentBlock().timestamp)]
+
+            // emit created event
+            emit FSMCreated(fsmId: self.uuid, targetIdentifier: targetIdentifier, state: start)
         }
     }
 
