@@ -106,6 +106,7 @@ pub contract StateMachine {
         access(account) var stateLogs: [StateLog]
         
         // ------ methods ------
+        pub fun getStateLogs(): [StateLog]
         pub fun checkNext(_ params: {String: AnyStruct}): CheckResult
         access(account) fun executeNext(_ params: {String: AnyStruct})
     }
@@ -176,6 +177,10 @@ pub contract StateMachine {
             self.stateLogs.append(StateLog(ret.next!, getCurrentBlock().timestamp))
         }
 
+        pub fun getStateLogs(): [StateLog] {
+            return self.stateLogs
+        }
+
         // initialize
         init(_ targetIdentifier: String, states: {String: StateDefinition}, start: String) {
             pre {
@@ -190,6 +195,11 @@ pub contract StateMachine {
             // emit created event
             emit FSMCreated(fsmId: self.uuid, targetIdentifier: targetIdentifier, state: start)
         }
+    }
+
+    // create new FSM resource
+    pub fun createFSM(_ targetIdentifier: String, states: {String: StateDefinition}, start: String): @FSM {
+        return <- create FSM(targetIdentifier, states: states, start: start)
     }
 
     // ------- utility methods -------
