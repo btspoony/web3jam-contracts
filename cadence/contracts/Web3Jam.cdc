@@ -30,7 +30,7 @@ pub contract Web3Jam {
     // --- Project Events ---
 
     // --- Campaign Events ---
-    pub event CampaignCreated() // TODO
+    pub event CampaignCreated(id: UInt64, host: Address, name: String, description: String, image: String)
     pub event CampaignStatusUpdated() // TODO
 
     // --- Campaigns Controller Events ---
@@ -76,7 +76,7 @@ pub contract Web3Jam {
     }
 
     // Campaign
-    pub resource Campaign {
+    pub resource Campaign: Web3JamInterfaces.CampaignPublic, Web3JamInterfaces.CampaignPrivate {
         // The `uuid` of this resource
         pub let id: UInt64
         // when created
@@ -84,26 +84,121 @@ pub contract Web3Jam {
         // who created the campaign
         pub let host: Address
         // --- varibles can be modified by host ---
-        
+        pub var name: String
+        pub var description: String
+        pub var image: String
+        pub var duration: [UFix64; 2]
+        pub var imageHeader: String?
+        pub var guideUrl: String
+        pub var registerUrl: String?
+        access(account) var sponsors: [Web3JamInterfaces.Sponsor]
+        access(account) var projectTags: [Web3JamInterfaces.Tag]
+        access(account) var roleTags: [Web3JamInterfaces.Tag]
+        access(account) var extensions: {String: AnyStruct}
         // --- varibles of campain status ---
-        
+        // fsm of the campaign
+        access(account) let fsm: @StateMachine.FSM
+        pub var projects: @{String: Project}
 
         init(
+            host: Address,
+            name: String,
+            description: String,
+            image: String,
+            imageHeader: String?,
+            duration: [UFix64; 2],
+            guideUrl: String,
+            registerUrl: String?,
+            sponsors: [Web3JamInterfaces.Sponsor],
+            projectTags: [Web3JamInterfaces.Tag],
+            roleTags: [Web3JamInterfaces.Tag],
+            extensions: {String: AnyStruct}
         ) {
             self.id = self.uuid
+            self.dateCreated = getCurrentBlock().timestamp
+            self.host = host
+            // variables
+            self.name = name
+            self.description = description
+            self.image = image
+            self.imageHeader = imageHeader
+            self.duration = duration
+            self.guideUrl = guideUrl
+            self.registerUrl = registerUrl
+            // array or collection
+            self.sponsors = sponsors
+            self.projectTags = projectTags
+            self.roleTags = roleTags
+            self.extensions = extensions
+            // resources
+            self.projects <- {}
 
+            // build campaign FSM
+            self.fsm <- StateMachine.createFSM(
+                self.getType().identifier,
+                states: {}, // TODO build FSM detail
+                start: "opening"
+            )
 
-            emit CampaignCreated()
+            Web3Jam.totalCompaigns = Web3Jam.totalCompaigns + 1
+            emit CampaignCreated(id: self.id, host: self.host, name: self.name, description: self.description, image: self.image)
+        }
+
+        destroy() {
+            destroy self.fsm
+            destroy self.projects
         }
 
         // --- Getters - Public Interfaces ---
+        // get current fsm state 
+        pub fun getCurrentState(): String {
+            return self.fsm.currentState
+        }
+        // get a sponsor
+        pub fun getSponsor(idx: UInt64): Web3JamInterfaces.Sponsor {
+            return self.sponsors[idx]
+        }
+        // get availble sponsor
+        pub fun getAvailableSponsors(): [Web3JamInterfaces.Sponsor] {
+            return self.sponsors
+        }
+        // get a tag
+        pub fun getTag(type: Web3JamInterfaces.TagType, idx: UInt64): Web3JamInterfaces.Tag? {
+            if type == Web3JamInterfaces.TagType.projectScope {
+                return self.projectTags[idx]
+            } else if type == Web3JamInterfaces.TagType.role {
+                return self.roleTags[idx]
+            }
+            return nil
+        }
+        // get availble tags
+        pub fun getAvailableTags(type: Web3JamInterfaces.TagType): [Web3JamInterfaces.Tag] {
+            if type == Web3JamInterfaces.TagType.projectScope {
+                return self.projectTags
+            } else if type == Web3JamInterfaces.TagType.role {
+                return self.roleTags
+            }
+            return []
+        }
 
         // --- Setters - Private Interfaces ---
+        // add sponsors
+        pub fun addSponsors(sponsorsToAdd: [Web3JamInterfaces.Sponsor]) {
+            self.sponsors.appendAll(sponsorsToAdd)
+        }
+
+        // add tags
+        pub fun addTags(type: Web3JamInterfaces.TagType, tagsToAdd: [Web3JamInterfaces.Tag]) {
+            if type == Web3JamInterfaces.TagType.projectScope {
+                self.projectTags.appendAll(tagsToAdd)
+            } else if type == Web3JamInterfaces.TagType.role {
+                self.roleTags.appendAll(tagsToAdd)
+            }
+        }
 
         // --- Setters - Contract Only ---
 
         // --- Self Only ---
-        // access(self) getControllerPublic(): 
 
     }
 
@@ -113,16 +208,12 @@ pub contract Web3Jam {
         pub let hq: Capability<&Web3Jam.Web3JamHQ{Web3JamInterfaces.Web3JamHQPublic}>
         // all campaigns you created
         access(account) var campaigns: @{UInt64: Campaign}
-        access(account) var sponsors: [Web3JamInterfaces.Sponsor]
-        access(account) var tags: [Web3JamInterfaces.Tag]
 
         init(
             _ hq: Capability<&Web3Jam.Web3JamHQ{Web3JamInterfaces.Web3JamHQPublic}>
         ) {
             self.hq = hq
             self.campaigns <- {}
-            self.sponsors = []
-            self.tags = []
         }
 
         destroy () {
@@ -135,41 +226,8 @@ pub contract Web3Jam {
         pub fun getIDs(): [UInt64] {
             return self.campaigns.keys
         }
-        pub fun getSponsor(idx: UInt64): Web3JamInterfaces.Sponsor {
-            return self.sponsors[idx]
-        }
-        pub fun getAvailableSponsors(): [Web3JamInterfaces.Sponsor] {
-            return  self.sponsors
-        }
-        pub fun getTag(idx: UInt64): Web3JamInterfaces.Tag {
-            return self.tags[idx]
-        }
-        pub fun getAvailableTags(type: Web3JamInterfaces.TagType): [Web3JamInterfaces.Tag] {
-            var resultTags: [Web3JamInterfaces.Tag] = []
-            for tag in self.tags {
-                if tag.type == type {
-                    resultTags.append(tag)
-                }
-            }
-            return resultTags
-        }
 
         // --- Setters - Private Interfaces ---
-        // add sponsors
-        pub fun addSponsors(sponsorsToAdd: [Web3JamInterfaces.Sponsor]) {
-            pre {
-                self.isControllable(): "Current controller is invalid"
-            }
-            self.sponsors.appendAll(sponsorsToAdd)
-        }
-
-        // add tags
-        pub fun addTags(tagsToAdd: [Web3JamInterfaces.Tag]) {
-            pre {
-                self.isControllable(): "Current controller is invalid"
-            }
-            self.tags.appendAll(tagsToAdd)
-        }
 
         // create a new compain resource
         pub fun createCompaign(
@@ -179,14 +237,31 @@ pub contract Web3Jam {
             imageHeader: String?,
             guideUrl: String,
             registerUrl: String?,
+            startTime: UFix64?,
+            endTime: UFix64,
             sponsors: [Web3JamInterfaces.Sponsor],
             projectTags: [Web3JamInterfaces.Tag],
             roleTags: [Web3JamInterfaces.Tag],
-            verifiers: [{StateMachine.IVerifier, StateMachine.IChecker}],
             _ extensions: {String: AnyStruct}
         ): UInt64 {
-            let typedVerifiers = StateMachine.buildTypedStructs(verifiers)
-            let campaign <- create Campaign()
+            pre {
+                self.isControllable(): "Current controller is invalid"
+            }
+
+            let campaign <- create Campaign(
+                host: self.owner!.address,
+                name: name,
+                description: description,
+                image: image,
+                imageHeader: imageHeader,
+                duration: [ startTime ?? getCurrentBlock().timestamp, endTime],
+                guideUrl: guideUrl,
+                registerUrl: registerUrl,
+                sponsors: sponsors,
+                projectTags: projectTags,
+                roleTags: roleTags,
+                extensions: extensions
+            )
 
             let campainId = campaign.id
             self.campaigns[campainId] <-! campaign
@@ -199,6 +274,7 @@ pub contract Web3Jam {
             pre {
                 self.isAdministrator(): "Current controller should be an administrator of HQ"
             }
+
             let privRef = self.hq.borrow()!.borrowHQPrivateRef()
             privRef.setWhitelisted(key, account: account, whitelisted: whitelisted)
         }
