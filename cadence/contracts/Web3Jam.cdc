@@ -19,6 +19,8 @@ pub contract Web3Jam {
     pub let CompaignsControllerStoragePath: StoragePath
     pub let CompaignsControllerPrivatePath: PrivatePath
     pub let CompaignsControllerPublicPath: PublicPath
+    pub let AccessVoucherStoragePath: StoragePath
+    pub let AccessVoucherPublicPath: PublicPath
 
     /**    ____ _  _ ____ _  _ ___ ____
        *   |___ |  | |___ |\ |  |  [__
@@ -27,7 +29,12 @@ pub contract Web3Jam {
 
     // emitted when contract initialized
     pub event ContractInitialized()
+
+    // --- Access Voucher ---
+    pub event AccessVoucherCreated(serial: UInt64)
+
     // --- Project Events ---
+    pub event ProjectCreated() // TODO
 
     // --- Campaign Events ---
     pub event CampaignCreated(id: UInt64, host: Address, name: String, description: String, image: String)
@@ -49,11 +56,44 @@ pub contract Web3Jam {
     pub var totalCompaigns: UInt64
     // total project amount
     pub var totalProjects: UInt64
+    // total access voucher amount
+    pub var totalAccessVouchers: UInt64
 
     /**    ____ _  _ _  _ ____ ___ _ ____ _  _ ____ _    _ ___ _   _
        *   |___ |  | |\ | |     |  | |  | |\ | |__| |    |  |   \_/
         *  |    |__| | \| |___  |  | |__| | \| |  | |___ |  |    |
          ***********************************************************/
+    
+    // Web3Jam access token
+    pub resource AccessVoucher: Web3JamInterfaces.AccessVoucherPublic {
+        // Access Voucher serial number
+        pub let serial: UInt64
+        // voucher metadata
+        access(account) var metadata: {String: AnyStruct}
+
+        // access records
+        access(account) var joinedProjects: [Web3JamInterfaces.ProjectIdentifier]
+        access(account) var joinedCompaigns: [Web3JamInterfaces.CampaignIdentifier]
+
+        init() {
+            self.serial = Web3Jam.totalAccessVouchers
+
+            self.joinedCompaigns = []
+            self.joinedProjects = []
+            self.metadata = {}
+
+            Web3Jam.totalAccessVouchers = Web3Jam.totalAccessVouchers + 1
+            emit AccessVoucherCreated(serial: self.serial)
+        }
+
+        // --- Getters - Public Interfaces ---
+
+        // --- Setters - Private Interfaces ---
+
+        // --- Setters - Contract Only ---
+
+        // --- Self Only ---
+    }
     
     // Project
     pub resource Project {
@@ -63,6 +103,9 @@ pub contract Web3Jam {
         init(
         ) {
             self.id = self.uuid
+
+            Web3Jam.totalProjects = Web3Jam.totalProjects + 1
+            emit ProjectCreated()
         }
 
         // --- Getters - Public Interfaces ---
@@ -350,6 +393,11 @@ pub contract Web3Jam {
         }
     }
 
+    // create an access voucher resource
+    pub fun createAccessVoucher(): @AccessVoucher {
+        return <- create AccessVoucher()
+    }
+
     // create a new campaign controller resource
     pub fun createCampaignController(hq: Capability<&Web3Jam.Web3JamHQ{Web3JamInterfaces.Web3JamHQPublic}>): @CampaignsController {
         return <- create CampaignsController(hq)
@@ -358,6 +406,7 @@ pub contract Web3Jam {
     init() {
         self.totalCompaigns = 0
         self.totalProjects = 0
+        self.totalAccessVouchers = 0
         
         // Set the named paths
         self.Web3JamHQStoragePath  = /storage/Web3JamHQPath
@@ -365,6 +414,8 @@ pub contract Web3Jam {
         self.CompaignsControllerStoragePath = /storage/Web3JamCompaignsControllerPath
         self.CompaignsControllerPublicPath = /public/Web3JamCompaignsControllerPath
         self.CompaignsControllerPrivatePath = /private/Web3JamCompaignsControllerPath
+        self.AccessVoucherStoragePath = /storage/Web3JamAccessVoucherPath
+        self.AccessVoucherPublicPath = /public/Web3JamAccessVoucherPath
 
         // Create HQ resource
         self.account.save(

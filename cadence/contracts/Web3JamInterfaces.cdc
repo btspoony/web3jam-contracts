@@ -26,14 +26,14 @@ pub contract Web3JamInterfaces {
 
     // a wrapper to contain a address, campaign id
     pub struct CampaignIdentifier {
+        pub let controller: Address
         pub let campaignId: UInt64
-        pub let address: Address
 
         init (
-            _ address: Address,
+            _ controller: Address,
             _ campaignId: UInt64
         ) {
-            self.address = address
+            self.controller = controller
             self.campaignId = campaignId
         }
     }
@@ -157,6 +157,10 @@ pub contract Web3JamInterfaces {
         pub fun getAvailableSponsors(): [Sponsor]
         pub fun getTag(type: TagType,  idx: UInt64): Tag?
         pub fun getAvailableTags(type: TagType): [Tag]
+    }
+
+    pub resource interface AccessVoucherPublic {
+
     }
 
 }
