@@ -3,6 +3,7 @@
 Web3Jam contract interfaces or structs
 */
 
+import MetadataViews from "./standard/MetadataViews.cdc"
 import StateMachine from "./StateMachine.cdc"
 
 pub contract Web3JamInterfaces {
@@ -141,6 +142,7 @@ pub contract Web3JamInterfaces {
     pub resource interface CampaignsControllerPublic {
         // Public Getters
         pub fun getIDs(): [UInt64]
+        pub fun getCampaign(campaignID: UInt64): &{CampaignPublic}?
     }
 
     pub resource interface CampaignPrivate {
@@ -151,16 +153,39 @@ pub contract Web3JamInterfaces {
 
     pub resource interface CampaignPublic {
         // Public Getters
+        pub fun getIDs(): [UInt64]
+        pub fun getProject(projectID: UInt64): &{ProjectPublic, MetadataViews.Resolver}?
         pub fun getCurrentState(): String
+        pub fun hasJoined(account: Address): Bool
 
         pub fun getSponsor(idx: UInt64): Sponsor?
         pub fun getAvailableSponsors(): [Sponsor]
         pub fun getTag(type: TagType,  idx: UInt64): Tag?
         pub fun getAvailableTags(type: TagType): [Tag]
+
+        // Account Setters
+        access(account) fun join(account: Address)
+    }
+
+    pub resource interface ProjectPublic {
+        // Public Getters
+        pub fun getCampaign(): &{CampaignPublic, MetadataViews.Resolver}
+        pub fun hasJoined(account: Address): Bool
+
+        // Account Setters
+        access(account) fun join(account: Address)
+    }
+
+    pub resource interface AccessVoucherPrivate {
+        // Public Setter
+        pub fun joinProject(project: &{ProjectPublic, MetadataViews.Resolver})
+        pub fun joinCampaign(campaign: &{CampaignPublic, MetadataViews.Resolver}) 
     }
 
     pub resource interface AccessVoucherPublic {
+        // Public Getters
 
+        // Account Setters
     }
 
 }

@@ -20,6 +20,7 @@ pub contract Web3Jam {
     pub let CompaignsControllerPrivatePath: PrivatePath
     pub let CompaignsControllerPublicPath: PublicPath
     pub let AccessVoucherStoragePath: StoragePath
+    pub let AccessVoucherPrivatePath: PrivatePath
     pub let AccessVoucherPublicPath: PublicPath
 
     /**    ____ _  _ ____ _  _ ___ ____
@@ -65,9 +66,10 @@ pub contract Web3Jam {
          ***********************************************************/
     
     // Web3Jam access token
-    pub resource AccessVoucher: Web3JamInterfaces.AccessVoucherPublic {
+    pub resource AccessVoucher: Web3JamInterfaces.AccessVoucherPublic, Web3JamInterfaces.AccessVoucherPrivate {
         // Access Voucher serial number
         pub let serial: UInt64
+
         // voucher metadata
         access(account) var metadata: {String: AnyStruct}
 
@@ -90,36 +92,138 @@ pub contract Web3Jam {
 
         // --- Setters - Private Interfaces ---
 
+        // Update the metadata
+        pub fun setMetadata(key: String, value: AnyStruct) {
+            self.metadata[key] = value
+        }
+        // Batch update the metadata
+        pub fun updateMetadata(data: {String: AnyStruct}) {
+            for key in data.keys {
+                self.metadata[key] = data[key]
+            }
+        }
+
+        // access voucher to join a campaign
+        pub fun joinCampaign(campaign: &{Web3JamInterfaces.CampaignPublic, MetadataViews.Resolver}) {
+            let address = self.owner!.address
+            assert(!campaign.hasJoined(account: address), message: "You have been joined to the campaign.")
+
+            // join to campaign
+            campaign.join(account: address)
+
+            let idType = Type<Web3JamInterfaces.CampaignIdentifier>()
+            let identifier = campaign.resolveView(idType) ?? panic("Failed to resolve identifier view")
+            self.joinedCompaigns.append(identifier as! Web3JamInterfaces.CampaignIdentifier)
+        }
+
+        // access voucher to join a project
+        pub fun joinProject(project: &{Web3JamInterfaces.ProjectPublic, MetadataViews.Resolver}) {
+            let address = self.owner!.address
+            assert(!project.hasJoined(account: address), message: "You have been joined to the project.")
+
+            // ensure campaign joined
+            let campaign = project.getCampaign()
+            if !campaign.hasJoined(account: address) {
+                self.joinCampaign(campaign: campaign)
+            }
+
+            // join to project
+            project.join(account: address)
+
+            let idType = Type<Web3JamInterfaces.ProjectIdentifier>()
+            let identifier = project.resolveView(idType) ?? panic("Failed to resolve identifier view")
+            self.joinedProjects.append(identifier as! Web3JamInterfaces.ProjectIdentifier)
+        }
+
         // --- Setters - Contract Only ---
 
         // --- Self Only ---
     }
     
     // Project
-    pub resource Project {
+    pub resource Project: Web3JamInterfaces.ProjectPublic, MetadataViews.Resolver {
         // The `uuid` of this resource
         pub let id: UInt64
+        // who hosted the campaign
+        pub let host: Address
+        // the campaign id
+        pub let campaignId: UInt64
+        // when created
+        pub let dateCreated: UFix64
+        // who created the project
+        pub let creator: Capability<&{Web3JamInterfaces.AccessVoucherPublic}>
+        // map an address to joined flag
+        access(account) var joined: {Address: Bool}
 
         init(
+            host: Address,
+            campaignId: UInt64,
+            creator: Capability<&{Web3JamInterfaces.AccessVoucherPublic}>
         ) {
             self.id = self.uuid
+            self.dateCreated = getCurrentBlock().timestamp
+            self.host = host
+            self.campaignId = campaignId
+            self.creator = creator
+            self.joined = {}
 
             Web3Jam.totalProjects = Web3Jam.totalProjects + 1
-            emit ProjectCreated()
+
+            emit ProjectCreated() // TODO fill Event data
         }
 
         // --- Getters - Public Interfaces ---
 
+        // This is for the MetdataStandard
+        pub fun getViews(): [Type] {
+             return [
+                Type<Web3JamInterfaces.ProjectIdentifier>()
+            ]
+        }
+
+        // This is for the MetdataStandard
+        pub fun resolveView(_ view: Type): AnyStruct? {
+            switch view {
+                case Type<Web3JamInterfaces.ProjectIdentifier>():
+                    return Web3JamInterfaces.ProjectIdentifier(
+                        self.host,
+                        self.campaignId,
+                        self.id
+                    ) 
+            }
+            return nil
+        }
+
+        // has the account joined
+        pub fun hasJoined(account: Address): Bool {
+            return self.joined[account] ?? false
+        }
+
+        // get campaign inforamtion of the project
+        pub fun getCampaign(): &{Web3JamInterfaces.CampaignPublic} {
+            let controller = getAccount(self.host)
+                .getCapability(Web3Jam.CompaignsControllerPublicPath)
+                .borrow<&{Web3JamInterfaces.CampaignsControllerPublic}>()
+                ?? panic("Failed to get campaign controler.")
+            return controller.getCampaign(campaignID: self.campaignId)
+                ?? panic("Failed to found campaignID: ".concat(self.campaignId.toString()))
+        }
+
         // --- Setters - Private Interfaces ---
 
         // --- Setters - Contract Only ---
+
+        // a new account to join the project
+        access(account) fun join(account: Address) {
+            self.joined[account] = true
+        }
 
         // --- Self Only ---
 
     }
 
     // Campaign
-    pub resource Campaign: Web3JamInterfaces.CampaignPublic, Web3JamInterfaces.CampaignPrivate {
+    pub resource Campaign: Web3JamInterfaces.CampaignPublic, Web3JamInterfaces.CampaignPrivate, MetadataViews.Resolver, MetadataViews.ResolverCollection {
         // The `uuid` of this resource
         pub let id: UInt64
         // when created
@@ -141,7 +245,9 @@ pub contract Web3Jam {
         // --- varibles of campain status ---
         // fsm of the campaign
         access(account) let fsm: @StateMachine.FSM
-        pub var projects: @{String: Project}
+        access(account) var projects: @{UInt64: Project}
+        // map an address to joined flag
+        access(account) var joined: {Address: Bool}
 
         init(
             host: Address,
@@ -175,6 +281,7 @@ pub contract Web3Jam {
             self.extensions = extensions
             // resources
             self.projects <- {}
+            self.joined = {}
 
             // build campaign FSM
             self.fsm <- StateMachine.createFSM(
@@ -193,10 +300,51 @@ pub contract Web3Jam {
         }
 
         // --- Getters - Public Interfaces ---
+
+        // This is for the MetdataStandard
+        pub fun getViews(): [Type] {
+             return [
+                Type<Web3JamInterfaces.CampaignIdentifier>()
+            ]
+        }
+
+        // This is for the MetdataStandard
+        pub fun resolveView(_ view: Type): AnyStruct? {
+            switch view {
+                case Type<Web3JamInterfaces.CampaignIdentifier>():
+                    return Web3JamInterfaces.CampaignIdentifier(
+                        self.host,
+                        self.id
+                    ) 
+            }
+            return nil
+        }
+
+        // all ids of projects
+        pub fun getIDs(): [UInt64] {
+            return self.projects.keys
+        }
+
+        // This is for the MetdataStandard of projects
+        pub fun borrowViewResolver(id: UInt64): &{MetadataViews.Resolver} {
+            return &self.projects[id] as! &{MetadataViews.Resolver}
+        }
+
+        // get project public interface
+        pub fun getProject(projectID: UInt64): &{Web3JamInterfaces.ProjectPublic, MetadataViews.Resolver}? {
+            return &self.projects[projectID] as? &{Web3JamInterfaces.ProjectPublic, MetadataViews.Resolver}
+        }
+
         // get current fsm state 
         pub fun getCurrentState(): String {
             return self.fsm.currentState
         }
+
+        // has the account joined
+        pub fun hasJoined(account: Address): Bool {
+            return self.joined[account] ?? false
+        }
+
         // get a sponsor
         pub fun getSponsor(idx: UInt64): Web3JamInterfaces.Sponsor {
             return self.sponsors[idx]
@@ -241,6 +389,11 @@ pub contract Web3Jam {
 
         // --- Setters - Contract Only ---
 
+        // a new account to join the campaign
+        access(account) fun join(account: Address) {
+            self.joined[account] = true
+        }
+
         // --- Self Only ---
 
     }
@@ -268,6 +421,11 @@ pub contract Web3Jam {
         // all ids of compaigns
         pub fun getIDs(): [UInt64] {
             return self.campaigns.keys
+        }
+
+        // get campaign public
+        pub fun getCampaign(campaignID: UInt64): &{Web3JamInterfaces.CampaignPublic, MetadataViews.Resolver}? {
+            return &self.campaigns[campaignID] as? &{Web3JamInterfaces.CampaignPublic, MetadataViews.Resolver}
         }
 
         // --- Setters - Private Interfaces ---
@@ -416,6 +574,7 @@ pub contract Web3Jam {
         self.CompaignsControllerPrivatePath = /private/Web3JamCompaignsControllerPath
         self.AccessVoucherStoragePath = /storage/Web3JamAccessVoucherPath
         self.AccessVoucherPublicPath = /public/Web3JamAccessVoucherPath
+        self.AccessVoucherPrivatePath = /private/Web3JamAccessVoucherPath
 
         // Create HQ resource
         self.account.save(
