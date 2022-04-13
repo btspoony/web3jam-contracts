@@ -93,22 +93,24 @@ pub contract Web3JamParticipant {
         }
 
         // access voucher to join a project
-        pub fun joinProject(project: &{Web3JamInterfaces.ProjectPublic, MetadataViews.Resolver}) {
-            let address = self.owner!.address
-            assert(!project.hasJoined(account: address), message: "You have been joined to the project.")
+        pub fun applyForProject(project: &{Web3JamInterfaces.ProjectPublic, MetadataViews.Resolver}) {
+            // TODO
 
-            // ensure campaign joined
-            let campaign = project.getCampaign()
-            if !campaign.hasJoined(account: address) {
-                self.joinCampaign(campaign: campaign)
-            }
+            // let address = self.owner!.address
+            // assert(!project.hasJoined(account: address), message: "You have been joined to the project.")
 
-            // join to project
-            project.join(account: address)
+            // // ensure campaign joined
+            // let campaign = project.getCampaign()
+            // if !campaign.hasJoined(account: address) {
+            //     self.joinCampaign(campaign: campaign)
+            // }
 
-            let idType = Type<Web3JamInterfaces.ProjectIdentifier>()
-            let identifier = project.resolveView(idType) ?? panic("Failed to resolve identifier view")
-            self.joinedProjects.append(identifier as! Web3JamInterfaces.ProjectIdentifier)
+            // // join to project
+            // project.join(account: address)
+
+            // let idType = Type<Web3JamInterfaces.ProjectIdentifier>()
+            // let identifier = project.resolveView(idType) ?? panic("Failed to resolve identifier view")
+            // self.joinedProjects.append(identifier as! Web3JamInterfaces.ProjectIdentifier)
         }
 
         // --- Setters - Contract Only ---

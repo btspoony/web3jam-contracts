@@ -70,19 +70,54 @@ pub contract Web3Jam {
         pub let dateCreated: UFix64
         // who created the project
         pub let creator: Capability<&{Web3JamInterfaces.AccessVoucherPublic}>
+        // --- varibles can be modified by host ---
+        pub var name: String
+        pub var description: String
+        pub var image: String?
+        pub var tags: [Web3JamInterfaces.Tag]
+        access(account) var members: {Address: Capability<&{Web3JamInterfaces.AccessVoucherPublic}>}
+        access(account) var applicants: [Capability<&{Web3JamInterfaces.AccessVoucherPublic}>]
+        access(account) var extensions: {String: AnyStruct}
+        // --- varibles of project status ---
+        // project delivery information
+        access(account) var delivery: {String: AnyStruct}
+        // fsm of the campaign
+        access(self) let fsm: @StateMachine.FSM
         // permission keeper resource
         access(self) let permissionKeeper: @Permissions.PermissionsKeeper
 
         init(
             host: Address,
             campaignId: UInt64,
-            creator: Capability<&{Web3JamInterfaces.AccessVoucherPublic}>
+            creator: Capability<&{Web3JamInterfaces.AccessVoucherPublic}>,
+            name: String,
+            description: String,
+            image: String?,
+            tags: [Web3JamInterfaces.Tag],
+            extensions: {String: AnyStruct}
         ) {
             self.id = self.uuid
             self.dateCreated = getCurrentBlock().timestamp
             self.host = host
             self.campaignId = campaignId
             self.creator = creator
+            // variables
+            self.name = name
+            self.description = description
+            self.image = image
+            self.tags = tags
+            self.extensions = extensions
+            // dictionary or array
+            self.members = {}
+            self.applicants = []
+            self.delivery = {}
+
+            // build project FSM
+            self.fsm <- StateMachine.createFSM(
+                self.getType().identifier,
+                states: {}, // TODO build FSM detail
+                start: "recruiting"
+            )
 
             // build permissions
             self.permissionKeeper <- Permissions.createPermissionsKeeper(
@@ -100,6 +135,7 @@ pub contract Web3Jam {
 
         destroy() {
             destroy self.permissionKeeper
+            destroy self.fsm
         }
 
         // --- Getters - Public Interfaces ---
@@ -128,6 +164,10 @@ pub contract Web3Jam {
             return self.permissionKeeper.hasPermission(key.rawValue, account: account)
         }
 
+        pub fun getCurrentState(): String {
+            return self.fsm.currentState
+        }
+
         // has the account joined
         pub fun hasJoined(account: Address): Bool {
             return self.hasPermission(Web3JamInterfaces.PermissionKey.projectMember, account: account)
@@ -148,9 +188,9 @@ pub contract Web3Jam {
         // --- Setters - Contract Only ---
 
         // a new account to join the project
-        access(account) fun join(account: Address) {
-            self.permissionKeeper.setPermission(Web3JamInterfaces.PermissionKey.projectMember.rawValue, account: account, whitelisted: true)
-        }
+        // access(account) fun join(account: Address) {
+        //     self.permissionKeeper.setPermission(Web3JamInterfaces.PermissionKey.projectMember.rawValue, account: account, whitelisted: true)
+        // }
 
         // --- Self Only ---
 
@@ -179,10 +219,10 @@ pub contract Web3Jam {
         access(account) var roleTags: [Web3JamInterfaces.Tag]
         access(account) var extensions: {String: AnyStruct}
         // --- varibles of campain status ---
-        // fsm of the campaign
-        access(account) let fsm: @StateMachine.FSM
         // all project resources
         access(account) var projects: @{UInt64: Project}
+        // fsm of the campaign
+        access(self) let fsm: @StateMachine.FSM
         // permission keeper resource
         access(self) let permissionKeeper: @Permissions.PermissionsKeeper
 
@@ -377,7 +417,7 @@ pub contract Web3Jam {
             )
 
             Web3Jam.totalCompaigns = Web3Jam.totalCompaigns + 1
-            emit CampaignsControllerCreated(serial: self.serial) // TODO
+            emit CampaignsControllerCreated(serial: self.serial)
         }
 
         destroy () {

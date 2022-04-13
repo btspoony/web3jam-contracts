@@ -222,18 +222,16 @@ pub contract Web3JamInterfaces {
     pub resource interface ProjectPublic {
         // Public Getters
         pub fun getCampaign(): &{CampaignPublic, MetadataViews.Resolver}
+        pub fun getCurrentState(): String
 
         // permission check
         pub fun hasJoined(account: Address): Bool
-
-        // Account Setters
-        access(account) fun join(account: Address)
     }
 
     pub resource interface AccessVoucherPrivate {
         // Public Setter
-        pub fun joinProject(project: &{ProjectPublic, MetadataViews.Resolver})
         pub fun joinCampaign(campaign: &{CampaignPublic, MetadataViews.Resolver}) 
+        pub fun applyForProject(project: &{ProjectPublic, MetadataViews.Resolver})
     }
 
     pub resource interface AccessVoucherPublic {
