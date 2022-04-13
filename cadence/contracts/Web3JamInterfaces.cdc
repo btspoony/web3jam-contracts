@@ -86,16 +86,45 @@ pub contract Web3JamInterfaces {
         }
     }
 
+    // Prize Unit
+    pub struct PrizeUnit {
+        pub let currency: String
+        pub let amount: Fix64
+
+        init(currency: String, amount: Fix64) {
+            self.currency = currency
+            self.amount = amount
+        }
+    }
+
+    // Prize
+    pub struct PrizeInfo {
+        pub let name: String
+        pub let description: String
+        pub let image: String
+
+        pub let values: [PrizeUnit]
+        pub let isWithNFT: Bool
+
+        init(name: String, desc: String, image: String, values: [PrizeUnit], withNFT: Bool) {
+            self.name = name
+            self.description = desc
+            self.image = image
+            self.values = values
+            self.isWithNFT = withNFT
+        }
+    }
+
     // Award
     pub struct Award {
-        pub let projectId: UInt64
-        pub let prizeTypeId: UInt64
+        pub let project: ProjectIdentifier
+        pub let prizeName: String
         pub var claimed: Bool
         pub var claimedNFTId: UInt64?
 
-        init(_ projectId: UInt64, _ prizeTypeId: UInt64) {
-            self.projectId = projectId
-            self.prizeTypeId = prizeTypeId
+        init(_ project: ProjectIdentifier, _ prizeName: String) {
+            self.project = project
+            self.prizeName = prizeName
             self.claimed = false
             self.claimedNFTId = nil
         }
@@ -165,13 +194,21 @@ pub contract Web3JamInterfaces {
         // Public Setter
         pub fun addSponsors(sponsorsToAdd: [Sponsor])
         pub fun addTags(type: TagType, tagsToAdd: [Tag])
+
+        pub fun updateBasics(name: String, description: String, image: String, imageHeader: String?, guideUrl: String, registerUrl: String?)
+        pub fun upsertPrize(prize: PrizeInfo)
     }
 
     pub resource interface CampaignParticipant {
-        // Public Getters
-
         // Public Setter
-
+        pub fun createProject(
+            creator: Capability<&{Web3JamInterfaces.AccessVoucherPublic}>,
+            name: String,
+            description: String,
+            image: String?,
+            tags: [Web3JamInterfaces.Tag],
+            _ extensions: {String: AnyStruct}
+        ): &{ProjectPublic, MetadataViews.Resolver}
     }
 
     pub resource interface CampaignJudge {
@@ -185,6 +222,8 @@ pub contract Web3JamInterfaces {
         // Public Getters
         pub fun getIDs(): [UInt64]
         pub fun getProject(projectID: UInt64): &{ProjectPublic, MetadataViews.Resolver}?
+        pub fun getPrizes(): [PrizeInfo]
+
         pub fun getCurrentState(): String
 
         // permission check
@@ -197,7 +236,8 @@ pub contract Web3JamInterfaces {
         pub fun getAvailableTags(type: TagType): [Tag]
 
         // Account Setters
-        access(account) fun join(account: Address)
+        access(account) fun participate(account: Address)
+        access(account) fun joinProject(account: Address, projectID: UInt64)
     }
 
     pub resource interface ProjectMaintainer {
@@ -230,7 +270,7 @@ pub contract Web3JamInterfaces {
 
     pub resource interface AccessVoucherPrivate {
         // Public Setter
-        pub fun joinCampaign(campaign: &{CampaignPublic, MetadataViews.Resolver}) 
+        pub fun participateCampaign(campaign: &{CampaignPublic, MetadataViews.Resolver}) 
         pub fun applyForProject(project: &{ProjectPublic, MetadataViews.Resolver})
     }
 

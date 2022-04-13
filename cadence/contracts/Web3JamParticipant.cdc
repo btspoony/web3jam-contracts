@@ -80,12 +80,12 @@ pub contract Web3JamParticipant {
         }
 
         // access voucher to join a campaign
-        pub fun joinCampaign(campaign: &{Web3JamInterfaces.CampaignPublic, MetadataViews.Resolver}) {
+        pub fun participateCampaign(campaign: &{Web3JamInterfaces.CampaignPublic, MetadataViews.Resolver}) {
             let address = self.owner!.address
             assert(!campaign.hasJoined(account: address), message: "You have been joined to the campaign.")
 
             // join to campaign
-            campaign.join(account: address)
+            campaign.participate(account: address)
 
             let idType = Type<Web3JamInterfaces.CampaignIdentifier>()
             let identifier = campaign.resolveView(idType) ?? panic("Failed to resolve identifier view")

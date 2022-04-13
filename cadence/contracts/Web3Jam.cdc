@@ -94,7 +94,7 @@ pub contract Web3Jam {
             description: String,
             image: String?,
             tags: [Web3JamInterfaces.Tag],
-            extensions: {String: AnyStruct}
+            _ extensions: {String: AnyStruct}
         ) {
             self.id = self.uuid
             self.dateCreated = getCurrentBlock().timestamp
@@ -210,10 +210,10 @@ pub contract Web3Jam {
         pub var name: String
         pub var description: String
         pub var image: String
-        pub var duration: [UFix64; 2]
         pub var imageHeader: String?
         pub var guideUrl: String
         pub var registerUrl: String?
+        pub var duration: [UFix64; 2]
         access(account) var sponsors: [Web3JamInterfaces.Sponsor]
         access(account) var projectTags: [Web3JamInterfaces.Tag]
         access(account) var roleTags: [Web3JamInterfaces.Tag]
@@ -221,6 +221,8 @@ pub contract Web3Jam {
         // --- varibles of campain status ---
         // all project resources
         access(account) var projects: @{UInt64: Project}
+        // record account to project dictionary
+        access(self) var accountToProjects: {Address: UInt64}
         // fsm of the campaign
         access(self) let fsm: @StateMachine.FSM
         // permission keeper resource
@@ -233,9 +235,9 @@ pub contract Web3Jam {
             description: String,
             image: String,
             imageHeader: String?,
-            duration: [UFix64; 2],
             guideUrl: String,
             registerUrl: String?,
+            duration: [UFix64; 2],
             sponsors: [Web3JamInterfaces.Sponsor],
             projectTags: [Web3JamInterfaces.Tag],
             roleTags: [Web3JamInterfaces.Tag],
@@ -250,14 +252,15 @@ pub contract Web3Jam {
             self.description = description
             self.image = image
             self.imageHeader = imageHeader
-            self.duration = duration
             self.guideUrl = guideUrl
             self.registerUrl = registerUrl
+            self.duration = duration
             // array or collection
             self.sponsors = sponsors
             self.projectTags = projectTags
             self.roleTags = roleTags
             self.extensions = extensions
+            self.accountToProjects = {}
             // resources
             self.projects <- {}
 
@@ -368,6 +371,11 @@ pub contract Web3Jam {
             return []
         }
 
+        pub fun getPrizes(): [Web3JamInterfaces.PrizeInfo] {
+            // TODO
+            return []
+        }
+
         // --- Setters - Private Interfaces ---
         // add sponsors
         pub fun addSponsors(sponsorsToAdd: [Web3JamInterfaces.Sponsor]) {
@@ -383,11 +391,58 @@ pub contract Web3Jam {
             }
         }
 
+        // update basic information
+        pub fun updateBasics(name: String, description: String, image: String, imageHeader: String?, guideUrl: String, registerUrl: String?) {
+            self.name = name
+            self.description = description
+            self.image = image
+            self.imageHeader = imageHeader
+            self.guideUrl = guideUrl
+            self.registerUrl = registerUrl
+        }
+
+        // update prize information of the campaign
+        pub fun upsertPrize(prize: Web3JamInterfaces.PrizeInfo) {
+            // TODO
+        }
+
+        pub fun createProject(
+            creator: Capability<&{Web3JamInterfaces.AccessVoucherPublic}>,
+            name: String,
+            description: String,
+            image: String?,
+            tags: [Web3JamInterfaces.Tag],
+            _ extensions: {String: AnyStruct}
+        ): &{Web3JamInterfaces.ProjectPublic, MetadataViews.Resolver} {
+            pre {
+                self.hasJoined(account: self.owner!.address): "Creator isn't joined."
+                self.accountToProjects[self.owner!.address] == nil: "Creator already has a project"
+            }
+            
+            let project <- create Project(
+                host: self.owner!.address,
+                campaignId: self.id,
+                creator: creator,
+                name: name,
+                description: description,
+                image: image,
+                tags: tags,
+                extensions
+            )
+            let projectID = project.id
+            self.projects[projectID] <-! project
+            return &self.projects[projectID] as &{Web3JamInterfaces.ProjectPublic, MetadataViews.Resolver}
+        }
+
         // --- Setters - Contract Only ---
 
         // a new account to join the campaign
-        access(account) fun join(account: Address) {
+        access(account) fun participate(account: Address) {
             self.permissionKeeper.setPermission(Web3JamInterfaces.PermissionKey.campaignParticipant.rawValue, account: account, whitelisted: true)
+        }
+
+        access(account) fun joinProject(account: Address, projectID: UInt64) {
+            self.accountToProjects[account] = projectID
         }
 
         // --- Self Only ---
@@ -478,9 +533,9 @@ pub contract Web3Jam {
                 description: description,
                 image: image,
                 imageHeader: imageHeader,
-                duration: [ startTime ?? getCurrentBlock().timestamp, endTime],
                 guideUrl: guideUrl,
                 registerUrl: registerUrl,
+                duration: [ startTime ?? getCurrentBlock().timestamp, endTime],
                 sponsors: sponsors,
                 projectTags: projectTags,
                 roleTags: roleTags,
