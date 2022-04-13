@@ -19,9 +19,6 @@ pub contract Web3Jam {
     pub let CompaignsControllerStoragePath: StoragePath
     pub let CompaignsControllerPrivatePath: PrivatePath
     pub let CompaignsControllerPublicPath: PublicPath
-    pub let AccessVoucherStoragePath: StoragePath
-    pub let AccessVoucherPrivatePath: PrivatePath
-    pub let AccessVoucherPublicPath: PublicPath
 
     /**    ____ _  _ ____ _  _ ___ ____
        *   |___ |  | |___ |\ |  |  [__
@@ -30,9 +27,6 @@ pub contract Web3Jam {
 
     // emitted when contract initialized
     pub event ContractInitialized()
-
-    // --- Access Voucher ---
-    pub event AccessVoucherCreated(serial: UInt64)
 
     // --- Project Events ---
     pub event ProjectCreated() // TODO
@@ -57,88 +51,11 @@ pub contract Web3Jam {
     pub var totalCompaigns: UInt64
     // total project amount
     pub var totalProjects: UInt64
-    // total access voucher amount
-    pub var totalAccessVouchers: UInt64
 
     /**    ____ _  _ _  _ ____ ___ _ ____ _  _ ____ _    _ ___ _   _
        *   |___ |  | |\ | |     |  | |  | |\ | |__| |    |  |   \_/
         *  |    |__| | \| |___  |  | |__| | \| |  | |___ |  |    |
          ***********************************************************/
-    
-    // Web3Jam access token
-    pub resource AccessVoucher: Web3JamInterfaces.AccessVoucherPublic, Web3JamInterfaces.AccessVoucherPrivate {
-        // Access Voucher serial number
-        pub let serial: UInt64
-
-        // voucher metadata
-        access(account) var metadata: {String: AnyStruct}
-
-        // access records
-        access(account) var joinedProjects: [Web3JamInterfaces.ProjectIdentifier]
-        access(account) var joinedCompaigns: [Web3JamInterfaces.CampaignIdentifier]
-
-        init() {
-            self.serial = Web3Jam.totalAccessVouchers
-
-            self.joinedCompaigns = []
-            self.joinedProjects = []
-            self.metadata = {}
-
-            Web3Jam.totalAccessVouchers = Web3Jam.totalAccessVouchers + 1
-            emit AccessVoucherCreated(serial: self.serial)
-        }
-
-        // --- Getters - Public Interfaces ---
-
-        // --- Setters - Private Interfaces ---
-
-        // Update the metadata
-        pub fun setMetadata(key: String, value: AnyStruct) {
-            self.metadata[key] = value
-        }
-        // Batch update the metadata
-        pub fun updateMetadata(data: {String: AnyStruct}) {
-            for key in data.keys {
-                self.metadata[key] = data[key]
-            }
-        }
-
-        // access voucher to join a campaign
-        pub fun joinCampaign(campaign: &{Web3JamInterfaces.CampaignPublic, MetadataViews.Resolver}) {
-            let address = self.owner!.address
-            assert(!campaign.hasJoined(account: address), message: "You have been joined to the campaign.")
-
-            // join to campaign
-            campaign.join(account: address)
-
-            let idType = Type<Web3JamInterfaces.CampaignIdentifier>()
-            let identifier = campaign.resolveView(idType) ?? panic("Failed to resolve identifier view")
-            self.joinedCompaigns.append(identifier as! Web3JamInterfaces.CampaignIdentifier)
-        }
-
-        // access voucher to join a project
-        pub fun joinProject(project: &{Web3JamInterfaces.ProjectPublic, MetadataViews.Resolver}) {
-            let address = self.owner!.address
-            assert(!project.hasJoined(account: address), message: "You have been joined to the project.")
-
-            // ensure campaign joined
-            let campaign = project.getCampaign()
-            if !campaign.hasJoined(account: address) {
-                self.joinCampaign(campaign: campaign)
-            }
-
-            // join to project
-            project.join(account: address)
-
-            let idType = Type<Web3JamInterfaces.ProjectIdentifier>()
-            let identifier = project.resolveView(idType) ?? panic("Failed to resolve identifier view")
-            self.joinedProjects.append(identifier as! Web3JamInterfaces.ProjectIdentifier)
-        }
-
-        // --- Setters - Contract Only ---
-
-        // --- Self Only ---
-    }
     
     // Project
     pub resource Project: Web3JamInterfaces.ProjectPublic, MetadataViews.Resolver {
@@ -200,7 +117,7 @@ pub contract Web3Jam {
         }
 
         // get campaign inforamtion of the project
-        pub fun getCampaign(): &{Web3JamInterfaces.CampaignPublic} {
+        pub fun getCampaign(): &{Web3JamInterfaces.CampaignPublic, MetadataViews.Resolver} {
             let controller = getAccount(self.host)
                 .getCapability(Web3Jam.CompaignsControllerPublicPath)
                 .borrow<&{Web3JamInterfaces.CampaignsControllerPublic}>()
@@ -471,7 +388,7 @@ pub contract Web3Jam {
         }
 
         // only administrator can set whitelist
-        pub fun setHQWhitelisted(_ key: Web3JamInterfaces.WhiteListKey, account: Address, whitelisted: Bool) {
+        pub fun setHQWhitelisted(_ key: Web3JamInterfaces.PermissionKey, account: Address, whitelisted: Bool) {
             pre {
                 self.isAdministrator(): "Current controller should be an administrator of HQ"
             }
@@ -484,24 +401,24 @@ pub contract Web3Jam {
 
         // internal methods
         access(self) fun isControllable(): Bool {
-            return self.hq.borrow()!.isWhitelisted(Web3JamInterfaces.WhiteListKey.fullControl, account: self.owner!.address)
+            return self.hq.borrow()!.isWhitelisted(Web3JamInterfaces.PermissionKey.campaignsControllerWhitelist, account: self.owner!.address)
         }
         access(self) fun isAdministrator(): Bool {
-            return self.hq.borrow()!.isWhitelisted(Web3JamInterfaces.WhiteListKey.administrator, account: self.owner!.address)
+            return self.hq.borrow()!.isWhitelisted(Web3JamInterfaces.PermissionKey.administrator, account: self.owner!.address)
         }
     }
 
     // Web3 Jam HQ information
     pub resource Web3JamHQ: Web3JamInterfaces.Web3JamHQPublic, Web3JamInterfaces.Web3JamHQPrivate {
         // whitelisted controller accounts
-        access(account) var whitelistedAccounts: {Web3JamInterfaces.WhiteListKey: [Address]}
+        access(account) var whitelistedAccounts: {Web3JamInterfaces.PermissionKey: [Address]}
         // current opening campaign ids
         access(self) var openingCampaigns: [Web3JamInterfaces.CampaignIdentifier]
 
         init(_ admin: Address) {
             self.whitelistedAccounts = {
-                Web3JamInterfaces.WhiteListKey.administrator: [ admin ],
-                Web3JamInterfaces.WhiteListKey.fullControl: [ admin ]
+                Web3JamInterfaces.PermissionKey.administrator: [ admin ],
+                Web3JamInterfaces.PermissionKey.campaignsControllerWhitelist: [ admin ]
             }
             self.openingCampaigns = []
         }
@@ -515,7 +432,7 @@ pub contract Web3Jam {
         }
 
         // is some address whitedlisted for some white list key
-        pub fun isWhitelisted(_ key: Web3JamInterfaces.WhiteListKey, account: Address): Bool {
+        pub fun isWhitelisted(_ key: Web3JamInterfaces.PermissionKey, account: Address): Bool {
             if let list = self.whitelistedAccounts[key] {
                 return list.contains(account)
             }
@@ -527,7 +444,7 @@ pub contract Web3Jam {
         // --- Setters - Contract Only ---
 
         // only access by this contract
-        access(account) fun setWhitelisted(_ key: Web3JamInterfaces.WhiteListKey, account: Address, whitelisted: Bool) {
+        access(account) fun setWhitelisted(_ key: Web3JamInterfaces.PermissionKey, account: Address, whitelisted: Bool) {
             if let list = self.whitelistedAccounts[key] {
                 if whitelisted && !list.contains(account) {
                     list.append(account)
@@ -551,11 +468,6 @@ pub contract Web3Jam {
         }
     }
 
-    // create an access voucher resource
-    pub fun createAccessVoucher(): @AccessVoucher {
-        return <- create AccessVoucher()
-    }
-
     // create a new campaign controller resource
     pub fun createCampaignController(hq: Capability<&Web3Jam.Web3JamHQ{Web3JamInterfaces.Web3JamHQPublic}>): @CampaignsController {
         return <- create CampaignsController(hq)
@@ -564,7 +476,6 @@ pub contract Web3Jam {
     init() {
         self.totalCompaigns = 0
         self.totalProjects = 0
-        self.totalAccessVouchers = 0
         
         // Set the named paths
         self.Web3JamHQStoragePath  = /storage/Web3JamHQPath
@@ -572,9 +483,6 @@ pub contract Web3Jam {
         self.CompaignsControllerStoragePath = /storage/Web3JamCompaignsControllerPath
         self.CompaignsControllerPublicPath = /public/Web3JamCompaignsControllerPath
         self.CompaignsControllerPrivatePath = /private/Web3JamCompaignsControllerPath
-        self.AccessVoucherStoragePath = /storage/Web3JamAccessVoucherPath
-        self.AccessVoucherPublicPath = /public/Web3JamAccessVoucherPath
-        self.AccessVoucherPrivatePath = /private/Web3JamAccessVoucherPath
 
         // Create HQ resource
         self.account.save(

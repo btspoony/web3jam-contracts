@@ -14,9 +14,15 @@ pub contract Web3JamInterfaces {
          *****************************************/
 
     // enum for Web3Jam HQ whitelist
-    pub enum WhiteListKey: UInt8 {
+    pub enum PermissionKey: UInt8 {
         pub case administrator
-        pub case fullControl
+        pub case campaignsControllerWhitelist
+        pub case campaignMaintainer
+        pub case campaignParticipant
+        pub case campaignJudge
+        pub case projectMaintainer
+        pub case projectMember
+        pub case projectJudge
     }
 
     // enum for campaign tag
@@ -107,14 +113,14 @@ pub contract Web3JamInterfaces {
     // Web3JamHQ Private Interface
     pub resource interface Web3JamHQPrivate {
         // Account Setters
-        access(account) fun setWhitelisted(_ key: WhiteListKey, account: Address, whitelisted: Bool)
+        access(account) fun setWhitelisted(_ key: PermissionKey, account: Address, whitelisted: Bool)
     }
 
     // Web3JamHQ Public Interface
     pub resource interface Web3JamHQPublic {
         // Public Getters
         pub fun getOpeningCampaignIDs(): [CampaignIdentifier]
-        pub fun isWhitelisted(_ key: WhiteListKey, account: Address): Bool
+        pub fun isWhitelisted(_ key: PermissionKey, account: Address): Bool
         // Account Getters
         access(account) fun borrowHQPrivateRef(): &AnyResource{Web3JamHQPrivate}
     }
@@ -142,7 +148,7 @@ pub contract Web3JamInterfaces {
     pub resource interface CampaignsControllerPublic {
         // Public Getters
         pub fun getIDs(): [UInt64]
-        pub fun getCampaign(campaignID: UInt64): &{CampaignPublic}?
+        pub fun getCampaign(campaignID: UInt64): &{CampaignPublic, MetadataViews.Resolver}?
     }
 
     pub resource interface CampaignPrivate {
