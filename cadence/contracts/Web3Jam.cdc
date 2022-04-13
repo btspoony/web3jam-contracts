@@ -6,6 +6,7 @@ Web3Jam Main contract
 import MetadataViews from "./standard/MetadataViews.cdc"
 import Web3JamInterfaces from "./Web3JamInterfaces.cdc"
 import StateMachine from "./StateMachine.cdc"
+import Permissions from "./Permissions.cdc"
 
 pub contract Web3Jam {
 
@@ -39,14 +40,14 @@ pub contract Web3Jam {
     pub event SponsorsAdded() // TODO
     pub event TagsAdded() // TODO
 
-    // --- Web3Jam HQ Events ---
-    pub event WhitelistUpdated(key: UInt8, account: Address, whitelisted: Bool)
+    pub event CampaignsControllerCreated(serial: UInt64)
 
     /**    ____ ___ ____ ___ ____
        *   [__   |  |__|  |  |___
         *  ___]  |  |  |  |  |___
          ************************/
-    
+    // total compaigns controller amount
+    pub var totalControllers: UInt64
     // total compaign amount
     pub var totalCompaigns: UInt64
     // total project amount
@@ -58,7 +59,7 @@ pub contract Web3Jam {
          ***********************************************************/
     
     // Project
-    pub resource Project: Web3JamInterfaces.ProjectPublic, MetadataViews.Resolver {
+    pub resource Project: Web3JamInterfaces.ProjectMaintainer, Web3JamInterfaces.ProjectMember, Web3JamInterfaces.ProjectJudge, Web3JamInterfaces.ProjectPublic, Web3JamInterfaces.Web3JamPermissionTracker, MetadataViews.Resolver {
         // The `uuid` of this resource
         pub let id: UInt64
         // who hosted the campaign
@@ -69,8 +70,8 @@ pub contract Web3Jam {
         pub let dateCreated: UFix64
         // who created the project
         pub let creator: Capability<&{Web3JamInterfaces.AccessVoucherPublic}>
-        // map an address to joined flag
-        access(account) var joined: {Address: Bool}
+        // permission keeper resource
+        access(self) let permissionKeeper: @Permissions.PermissionsKeeper
 
         init(
             host: Address,
@@ -82,11 +83,23 @@ pub contract Web3Jam {
             self.host = host
             self.campaignId = campaignId
             self.creator = creator
-            self.joined = {}
+
+            // build permissions
+            self.permissionKeeper <- Permissions.createPermissionsKeeper(
+                resourceId: self.getType().identifier.concat(".").concat(self.uuid.toString()),
+                permissionId: Web3JamInterfaces.PermissionKey.getType().identifier
+            )
+            // set permissions for admin addresses
+            self.permissionKeeper.setPermission(Web3JamInterfaces.PermissionKey.projectMaintainer.rawValue, account: creator.address, whitelisted: true)
+            self.permissionKeeper.setPermission(Web3JamInterfaces.PermissionKey.projectMember.rawValue, account: creator.address, whitelisted: true)
 
             Web3Jam.totalProjects = Web3Jam.totalProjects + 1
 
             emit ProjectCreated() // TODO fill Event data
+        }
+
+        destroy() {
+            destroy self.permissionKeeper
         }
 
         // --- Getters - Public Interfaces ---
@@ -111,9 +124,13 @@ pub contract Web3Jam {
             return nil
         }
 
+        pub fun hasPermission(_ key: Web3JamInterfaces.PermissionKey, account: Address): Bool {
+            return self.permissionKeeper.hasPermission(key.rawValue, account: account)
+        }
+
         // has the account joined
         pub fun hasJoined(account: Address): Bool {
-            return self.joined[account] ?? false
+            return self.hasPermission(Web3JamInterfaces.PermissionKey.projectMember, account: account)
         }
 
         // get campaign inforamtion of the project
@@ -132,7 +149,7 @@ pub contract Web3Jam {
 
         // a new account to join the project
         access(account) fun join(account: Address) {
-            self.joined[account] = true
+            self.permissionKeeper.setPermission(Web3JamInterfaces.PermissionKey.projectMember.rawValue, account: account, whitelisted: true)
         }
 
         // --- Self Only ---
@@ -140,12 +157,14 @@ pub contract Web3Jam {
     }
 
     // Campaign
-    pub resource Campaign: Web3JamInterfaces.CampaignPublic, Web3JamInterfaces.CampaignPrivate, MetadataViews.Resolver, MetadataViews.ResolverCollection {
+    pub resource Campaign: Web3JamInterfaces.CampaignPublic, Web3JamInterfaces.CampaignMaintainer, Web3JamInterfaces.CampaignParticipant, Web3JamInterfaces.CampaignJudge, MetadataViews.Resolver, MetadataViews.ResolverCollection, Web3JamInterfaces.Web3JamPermissionTracker {
         // The `uuid` of this resource
         pub let id: UInt64
         // when created
         pub let dateCreated: UFix64
         // who created the campaign
+        pub let creator: Capability<&{Web3JamInterfaces.AccessVoucherPublic}>
+        // address of the campaigns controller
         pub let host: Address
         // --- varibles can be modified by host ---
         pub var name: String
@@ -162,11 +181,13 @@ pub contract Web3Jam {
         // --- varibles of campain status ---
         // fsm of the campaign
         access(account) let fsm: @StateMachine.FSM
+        // all project resources
         access(account) var projects: @{UInt64: Project}
-        // map an address to joined flag
-        access(account) var joined: {Address: Bool}
+        // permission keeper resource
+        access(self) let permissionKeeper: @Permissions.PermissionsKeeper
 
         init(
+            creator: Capability<&{Web3JamInterfaces.AccessVoucherPublic}>,
             host: Address,
             name: String,
             description: String,
@@ -182,6 +203,7 @@ pub contract Web3Jam {
         ) {
             self.id = self.uuid
             self.dateCreated = getCurrentBlock().timestamp
+            self.creator = creator
             self.host = host
             // variables
             self.name = name
@@ -198,7 +220,18 @@ pub contract Web3Jam {
             self.extensions = extensions
             // resources
             self.projects <- {}
-            self.joined = {}
+
+            // build permissions
+            self.permissionKeeper <- Permissions.createPermissionsKeeper(
+                resourceId: self.getType().identifier.concat(".").concat(self.uuid.toString()),
+                permissionId: Web3JamInterfaces.PermissionKey.getType().identifier
+            )
+            // set permissions for admin addresses
+            self.permissionKeeper.setPermission(Web3JamInterfaces.PermissionKey.campaignMaintainer.rawValue, account: host, whitelisted: true)
+            if creator.address != host {
+                self.permissionKeeper.setPermission(Web3JamInterfaces.PermissionKey.campaignMaintainer.rawValue, account: creator.address, whitelisted: true)
+            }
+            self.permissionKeeper.setPermission(Web3JamInterfaces.PermissionKey.campaignParticipant.rawValue, account: creator.address, whitelisted: true)
 
             // build campaign FSM
             self.fsm <- StateMachine.createFSM(
@@ -214,6 +247,7 @@ pub contract Web3Jam {
         destroy() {
             destroy self.fsm
             destroy self.projects
+            destroy self.permissionKeeper
         }
 
         // --- Getters - Public Interfaces ---
@@ -235,6 +269,11 @@ pub contract Web3Jam {
                     ) 
             }
             return nil
+        }
+
+        // This is for the Web3JamPermissionTracker
+        pub fun hasPermission(_ key: Web3JamInterfaces.PermissionKey, account: Address): Bool {
+            return self.permissionKeeper.hasPermission(key.rawValue, account: account)
         }
 
         // all ids of projects
@@ -259,7 +298,7 @@ pub contract Web3Jam {
 
         // has the account joined
         pub fun hasJoined(account: Address): Bool {
-            return self.joined[account] ?? false
+            return self.hasPermission(Web3JamInterfaces.PermissionKey.campaignParticipant, account: account)
         }
 
         // get a sponsor
@@ -308,7 +347,7 @@ pub contract Web3Jam {
 
         // a new account to join the campaign
         access(account) fun join(account: Address) {
-            self.joined[account] = true
+            self.permissionKeeper.setPermission(Web3JamInterfaces.PermissionKey.campaignParticipant.rawValue, account: account, whitelisted: true)
         }
 
         // --- Self Only ---
@@ -316,7 +355,10 @@ pub contract Web3Jam {
     }
 
     // Campaigns controller
-    pub resource CampaignsController: Web3JamInterfaces.CampaignsControllerPublic, Web3JamInterfaces.CampaignsControllerPrivate {
+    pub resource CampaignsController: Web3JamInterfaces.CampaignsControllerPublic, Web3JamInterfaces.CampaignsControllerPrivate, Web3JamInterfaces.Web3JamPermissionTracker {
+        access(self) let serial: UInt64
+        // permission keeper resource
+        access(self) let permissionKeeper: @Permissions.PermissionsKeeper
         // get access to hq public
         pub let hq: Capability<&Web3Jam.Web3JamHQ{Web3JamInterfaces.Web3JamHQPublic}>
         // all campaigns you created
@@ -327,10 +369,20 @@ pub contract Web3Jam {
         ) {
             self.hq = hq
             self.campaigns <- {}
+            self.serial = Web3Jam.totalCompaigns
+
+            self.permissionKeeper <- Permissions.createPermissionsKeeper(
+                resourceId: self.getType().identifier.concat(".").concat(self.uuid.toString()),
+                permissionId: Web3JamInterfaces.PermissionKey.getType().identifier
+            )
+
+            Web3Jam.totalCompaigns = Web3Jam.totalCompaigns + 1
+            emit CampaignsControllerCreated(serial: self.serial) // TODO
         }
 
         destroy () {
             destroy self.campaigns
+            destroy self.permissionKeeper
         }
 
         // --- Getters - Public Interfaces ---
@@ -344,11 +396,23 @@ pub contract Web3Jam {
         pub fun getCampaign(campaignID: UInt64): &{Web3JamInterfaces.CampaignPublic, MetadataViews.Resolver}? {
             return &self.campaigns[campaignID] as? &{Web3JamInterfaces.CampaignPublic, MetadataViews.Resolver}
         }
+        
+        pub fun hasPermission(_ key: Web3JamInterfaces.PermissionKey, account: Address): Bool {
+            if account == self.owner!.address {
+                return true
+            }
+            return self.permissionKeeper.hasPermission(key.rawValue, account: account)
+        }
+
+        pub fun isMaintainer(_ account: Address): Bool {
+            return self.hasPermission(Web3JamInterfaces.PermissionKey.campaignsControllerMaintainer, account: account)
+        }
 
         // --- Setters - Private Interfaces ---
 
         // create a new compain resource
         pub fun createCompaign(
+            creator: Capability<&{Web3JamInterfaces.AccessVoucherPublic}>,
             name: String,
             description: String,
             image: String,
@@ -363,10 +427,12 @@ pub contract Web3Jam {
             _ extensions: {String: AnyStruct}
         ): UInt64 {
             pre {
-                self.isControllable(): "Current controller is invalid"
+                self.isControllable(): "Current controller is invalid."
+                self.isMaintainer(creator.address): "Current creator is not a maintainer."
             }
 
             let campaign <- create Campaign(
+                creator: creator,
                 host: self.owner!.address,
                 name: name,
                 description: description,
@@ -385,6 +451,13 @@ pub contract Web3Jam {
             self.campaigns[campainId] <-! campaign
 
             return campainId
+        }
+
+        pub fun setMaintainer(account: Address, whitelisted: Bool) {
+            pre {
+                self.isControllable(): "Current controller is invalid"
+            }
+            self.permissionKeeper.setPermission(Web3JamInterfaces.PermissionKey.campaignsControllerMaintainer.rawValue, account: account, whitelisted: whitelisted)
         }
 
         // only administrator can set whitelist
@@ -409,18 +482,26 @@ pub contract Web3Jam {
     }
 
     // Web3 Jam HQ information
-    pub resource Web3JamHQ: Web3JamInterfaces.Web3JamHQPublic, Web3JamInterfaces.Web3JamHQPrivate {
-        // whitelisted controller accounts
-        access(account) var whitelistedAccounts: {Web3JamInterfaces.PermissionKey: [Address]}
+    pub resource Web3JamHQ: Web3JamInterfaces.Web3JamHQPublic, Web3JamInterfaces.Web3JamHQPrivate, Web3JamInterfaces.Web3JamPermissionTracker {
+        // permission keeper resource
+        access(self) let permissionKeeper: @Permissions.PermissionsKeeper
         // current opening campaign ids
         access(self) var openingCampaigns: [Web3JamInterfaces.CampaignIdentifier]
 
         init(_ admin: Address) {
-            self.whitelistedAccounts = {
-                Web3JamInterfaces.PermissionKey.administrator: [ admin ],
-                Web3JamInterfaces.PermissionKey.campaignsControllerWhitelist: [ admin ]
-            }
             self.openingCampaigns = []
+
+            self.permissionKeeper <- Permissions.createPermissionsKeeper(
+                resourceId: self.getType().identifier.concat(".").concat(self.uuid.toString()),
+                permissionId: Web3JamInterfaces.PermissionKey.getType().identifier
+            )
+            // set permissions for admin address
+            self.permissionKeeper.setPermission(Web3JamInterfaces.PermissionKey.administrator.rawValue, account: admin, whitelisted: true)
+            self.permissionKeeper.setPermission(Web3JamInterfaces.PermissionKey.campaignsControllerWhitelist.rawValue, account: admin, whitelisted: true)
+        }
+
+        destroy() {
+            destroy self.permissionKeeper
         }
 
         // --- Getters - Public Interfaces ---
@@ -433,10 +514,10 @@ pub contract Web3Jam {
 
         // is some address whitedlisted for some white list key
         pub fun isWhitelisted(_ key: Web3JamInterfaces.PermissionKey, account: Address): Bool {
-            if let list = self.whitelistedAccounts[key] {
-                return list.contains(account)
-            }
-            return false
+            return self.hasPermission(key, account: account)
+        }
+        pub fun hasPermission(_ key: Web3JamInterfaces.PermissionKey, account: Address): Bool {
+            return self.permissionKeeper.hasPermission(key.rawValue, account: account)
         }
 
         // --- Setters - Private Interfaces ---
@@ -445,21 +526,7 @@ pub contract Web3Jam {
 
         // only access by this contract
         access(account) fun setWhitelisted(_ key: Web3JamInterfaces.PermissionKey, account: Address, whitelisted: Bool) {
-            if let list = self.whitelistedAccounts[key] {
-                if whitelisted && !list.contains(account) {
-                    list.append(account)
-                    emit WhitelistUpdated(key: key.rawValue, account: account, whitelisted: whitelisted)
-                } else if !whitelisted && list.contains(account) {
-                    for idx, addr in list {
-                        if addr == account {
-                            list.remove(at: idx)
-                            break
-                        }
-                    }
-                }
-            } else if whitelisted {
-                self.whitelistedAccounts[key] = [ account ]
-            }
+            self.permissionKeeper.setPermission(key.rawValue, account: account, whitelisted: whitelisted)
         }
 
         // only used for account contract internal
@@ -474,6 +541,7 @@ pub contract Web3Jam {
     }
 
     init() {
+        self.totalControllers = 0
         self.totalCompaigns = 0
         self.totalProjects = 0
         

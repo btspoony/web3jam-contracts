@@ -17,6 +17,7 @@ pub contract Web3JamInterfaces {
     pub enum PermissionKey: UInt8 {
         pub case administrator
         pub case campaignsControllerWhitelist
+        pub case campaignsControllerMaintainer
         pub case campaignMaintainer
         pub case campaignParticipant
         pub case campaignJudge
@@ -128,6 +129,7 @@ pub contract Web3JamInterfaces {
     pub resource interface CampaignsControllerPrivate {
         // Public Setter
         pub fun createCompaign(
+            creator: Capability<&{Web3JamInterfaces.AccessVoucherPublic}>,
             name: String,
             description: String,
             image: String,
@@ -141,6 +143,8 @@ pub contract Web3JamInterfaces {
             roleTags: [Web3JamInterfaces.Tag],
             _ extensions: {String: AnyStruct}
         ): UInt64
+        pub fun setMaintainer(account: Address, whitelisted: Bool)
+
         // Account Setters
     }
 
@@ -149,12 +153,32 @@ pub contract Web3JamInterfaces {
         // Public Getters
         pub fun getIDs(): [UInt64]
         pub fun getCampaign(campaignID: UInt64): &{CampaignPublic, MetadataViews.Resolver}?
+
+        pub fun isMaintainer(_ account: Address): Bool
     }
 
-    pub resource interface CampaignPrivate {
+    pub resource interface Web3JamPermissionTracker {
+        pub fun hasPermission(_ key: PermissionKey, account: Address): Bool
+    }
+
+    pub resource interface CampaignMaintainer {
         // Public Setter
         pub fun addSponsors(sponsorsToAdd: [Sponsor])
         pub fun addTags(type: TagType, tagsToAdd: [Tag])
+    }
+
+    pub resource interface CampaignParticipant {
+        // Public Getters
+
+        // Public Setter
+
+    }
+
+    pub resource interface CampaignJudge {
+        // Public Getters
+
+        // Public Setter
+
     }
 
     pub resource interface CampaignPublic {
@@ -162,7 +186,6 @@ pub contract Web3JamInterfaces {
         pub fun getIDs(): [UInt64]
         pub fun getProject(projectID: UInt64): &{ProjectPublic, MetadataViews.Resolver}?
         pub fun getCurrentState(): String
-        pub fun hasJoined(account: Address): Bool
 
         pub fun getSponsor(idx: UInt64): Sponsor?
         pub fun getAvailableSponsors(): [Sponsor]
@@ -173,10 +196,28 @@ pub contract Web3JamInterfaces {
         access(account) fun join(account: Address)
     }
 
+    pub resource interface ProjectMaintainer {
+        // Public Setter
+
+    }
+
+    pub resource interface ProjectMember {
+        // Public Getters
+
+        // Public Setter
+
+    }
+
+    pub resource interface ProjectJudge {
+        // Public Getters
+
+        // Public Setter
+
+    }
+
     pub resource interface ProjectPublic {
         // Public Getters
         pub fun getCampaign(): &{CampaignPublic, MetadataViews.Resolver}
-        pub fun hasJoined(account: Address): Bool
 
         // Account Setters
         access(account) fun join(account: Address)
