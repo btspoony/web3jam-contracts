@@ -66,6 +66,14 @@ pub contract Web3JamParticipant {
 
         // --- Getters - Public Interfaces ---
 
+        pub fun getAddress(): Address {
+            return self.owner!.address
+        }
+
+        pub fun getMetadata(): {String: AnyStruct} {
+            return self.metadata
+        }
+
         // --- Setters - Private Interfaces ---
 
         // Update the metadata

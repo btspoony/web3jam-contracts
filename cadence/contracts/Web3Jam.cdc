@@ -3,6 +3,7 @@
 Web3Jam Main contract
 */
 
+import NonFungibleToken from "./standard/NonFungibleToken.cdc"
 import MetadataViews from "./standard/MetadataViews.cdc"
 import Web3JamInterfaces from "./Web3JamInterfaces.cdc"
 import StateMachine from "./StateMachine.cdc"
@@ -59,7 +60,7 @@ pub contract Web3Jam {
          ***********************************************************/
     
     // Project
-    pub resource Project: Web3JamInterfaces.ProjectMaintainer, Web3JamInterfaces.ProjectMember, Web3JamInterfaces.ProjectJudge, Web3JamInterfaces.ProjectPublic, Web3JamInterfaces.Web3JamPermissionTracker, MetadataViews.Resolver {
+    pub resource Project: Web3JamInterfaces.ProjectMaintainer, Web3JamInterfaces.ProjectMember, Web3JamInterfaces.ProjectJudge, Web3JamInterfaces.ProjectPublic, Permissions.Keeper, MetadataViews.Resolver {
         // The `uuid` of this resource
         pub let id: UInt64
         // who hosted the campaign
@@ -76,7 +77,7 @@ pub contract Web3Jam {
         pub var image: String?
         pub var tags: [Web3JamInterfaces.Tag]
         access(account) var members: {Address: Capability<&{Web3JamInterfaces.AccessVoucherPublic}>}
-        access(account) var applicants: [Capability<&{Web3JamInterfaces.AccessVoucherPublic}>]
+        access(account) var applicants: {Address: Capability<&{Web3JamInterfaces.AccessVoucherPublic}>}
         access(account) var extensions: {String: AnyStruct}
         // --- varibles of project status ---
         // project delivery information
@@ -109,7 +110,7 @@ pub contract Web3Jam {
             self.extensions = extensions
             // dictionary or array
             self.members = {}
-            self.applicants = []
+            self.applicants = {}
             self.delivery = {}
 
             // build project FSM
@@ -160,8 +161,24 @@ pub contract Web3Jam {
             return nil
         }
 
-        pub fun hasPermission(_ key: Web3JamInterfaces.PermissionKey, account: Address): Bool {
-            return self.permissionKeeper.hasPermission(key.rawValue, account: account)
+        pub fun getPermissionsTracker(): &{Permissions.Tracker} {
+            return &self.permissionKeeper as &{Permissions.Tracker}
+        } 
+
+        pub fun getMembers(): [&{Web3JamInterfaces.AccessVoucherPublic}] {
+            var ret: [&{Web3JamInterfaces.AccessVoucherPublic}] = []
+            for one in self.members.values {
+                ret.append(one.borrow()!)
+            }
+            return ret
+        }
+
+        pub fun getApplicants(): [&{Web3JamInterfaces.AccessVoucherPublic}] {
+            var ret: [&{Web3JamInterfaces.AccessVoucherPublic}] = []
+            for one in self.applicants.values {
+                ret.append(one.borrow()!)
+            }
+            return ret
         }
 
         pub fun getCurrentState(): String {
@@ -170,7 +187,7 @@ pub contract Web3Jam {
 
         // has the account joined
         pub fun hasJoined(account: Address): Bool {
-            return self.hasPermission(Web3JamInterfaces.PermissionKey.projectMember, account: account)
+            return self.permissionKeeper.hasPermission(Web3JamInterfaces.PermissionKey.projectMember.rawValue, account: account)
         }
 
         // get campaign inforamtion of the project
@@ -185,19 +202,46 @@ pub contract Web3Jam {
 
         // --- Setters - Private Interfaces ---
 
+        pub fun updateBasics(name: String, description: String, image: String) {
+            self.name = name
+            self.description = description
+            self.image = image
+        }
+
+        pub fun updateTags(tags: [Web3JamInterfaces.Tag]) {
+            self.tags = tags
+        }
+
+        pub fun approveApplicant(account: Address) {
+            // TODO
+        }
+
+        pub fun addMembers(accounts: [Address]) {
+            // TODO
+        }
+
+        pub fun updateDelivery(_ data: {String: AnyStruct}) {
+            // TODO
+        }
+        
         // --- Setters - Contract Only ---
 
-        // a new account to join the project
-        // access(account) fun join(account: Address) {
+        access(account) fun claimAward(account: Address): @NonFungibleToken.NFT? {
+            // TODO
+            return nil
+        }
+
+        access(account) fun applyFor(account: Address) {
+            // TODO
         //     self.permissionKeeper.setPermission(Web3JamInterfaces.PermissionKey.projectMember.rawValue, account: account, whitelisted: true)
-        // }
+        }
 
         // --- Self Only ---
 
     }
 
     // Campaign
-    pub resource Campaign: Web3JamInterfaces.CampaignPublic, Web3JamInterfaces.CampaignMaintainer, Web3JamInterfaces.CampaignParticipant, Web3JamInterfaces.CampaignJudge, MetadataViews.Resolver, MetadataViews.ResolverCollection, Web3JamInterfaces.Web3JamPermissionTracker {
+    pub resource Campaign: Web3JamInterfaces.CampaignPublic, Web3JamInterfaces.CampaignMaintainer, Web3JamInterfaces.CampaignParticipant, Web3JamInterfaces.CampaignJudge, MetadataViews.Resolver, MetadataViews.ResolverCollection, Permissions.Keeper {
         // The `uuid` of this resource
         pub let id: UInt64
         // when created
@@ -314,9 +358,9 @@ pub contract Web3Jam {
             return nil
         }
 
-        // This is for the Web3JamPermissionTracker
-        pub fun hasPermission(_ key: Web3JamInterfaces.PermissionKey, account: Address): Bool {
-            return self.permissionKeeper.hasPermission(key.rawValue, account: account)
+        // This is for the Permissions.Keeper
+        pub fun getPermissionsTracker(): &{Permissions.Tracker} {
+            return &self.permissionKeeper as &{Permissions.Tracker}
         }
 
         // all ids of projects
@@ -341,7 +385,7 @@ pub contract Web3Jam {
 
         // has the account joined
         pub fun hasJoined(account: Address): Bool {
-            return self.hasPermission(Web3JamInterfaces.PermissionKey.campaignParticipant, account: account)
+            return self.permissionKeeper.hasPermission(Web3JamInterfaces.PermissionKey.campaignParticipant.rawValue, account: account)
         }
 
         // get a sponsor
@@ -374,6 +418,11 @@ pub contract Web3Jam {
         pub fun getPrizes(): [Web3JamInterfaces.PrizeInfo] {
             // TODO
             return []
+        }
+
+        pub fun getWinners(): {String: Web3JamInterfaces.AwardInfo} {
+            // TODO
+            return {}
         }
 
         // --- Setters - Private Interfaces ---
@@ -433,6 +482,13 @@ pub contract Web3Jam {
             self.projects[projectID] <-! project
             return &self.projects[projectID] as &{Web3JamInterfaces.ProjectPublic, MetadataViews.Resolver}
         }
+        
+        // --- Getters - Contract Only ---
+
+        access(account) fun getAssignedProjects(judge: Address): [UInt64] {
+            // TODO
+            return []
+        }
 
         // --- Setters - Contract Only ---
 
@@ -450,7 +506,7 @@ pub contract Web3Jam {
     }
 
     // Campaigns controller
-    pub resource CampaignsController: Web3JamInterfaces.CampaignsControllerPublic, Web3JamInterfaces.CampaignsControllerPrivate, Web3JamInterfaces.Web3JamPermissionTracker {
+    pub resource CampaignsController: Web3JamInterfaces.CampaignsControllerPublic, Web3JamInterfaces.CampaignsControllerPrivate, Permissions.Keeper {
         access(self) let serial: UInt64
         // permission keeper resource
         access(self) let permissionKeeper: @Permissions.PermissionsKeeper
@@ -491,14 +547,12 @@ pub contract Web3Jam {
         pub fun getCampaign(campaignID: UInt64): &{Web3JamInterfaces.CampaignPublic, MetadataViews.Resolver}? {
             return &self.campaigns[campaignID] as? &{Web3JamInterfaces.CampaignPublic, MetadataViews.Resolver}
         }
-        
-        pub fun hasPermission(_ key: Web3JamInterfaces.PermissionKey, account: Address): Bool {
-            if account == self.owner!.address {
-                return true
-            }
-            return self.permissionKeeper.hasPermission(key.rawValue, account: account)
-        }
 
+        // This is for the Permissions.Keeper
+        pub fun getPermissionsTracker(): &{Permissions.Tracker} {
+            return &self.permissionKeeper as &{Permissions.Tracker}
+        }
+        
         pub fun isMaintainer(_ account: Address): Bool {
             return self.hasPermission(Web3JamInterfaces.PermissionKey.campaignsControllerMaintainer, account: account)
         }
@@ -567,6 +621,13 @@ pub contract Web3Jam {
 
         // --- Self Only ---
 
+        access(self) fun hasPermission(_ key: Web3JamInterfaces.PermissionKey, account: Address): Bool {
+            if account == self.owner!.address {
+                return true
+            }
+            return self.permissionKeeper.hasPermission(key.rawValue, account: account)
+        }
+
         // internal methods
         access(self) fun isControllable(): Bool {
             return self.hq.borrow()!.isWhitelisted(Web3JamInterfaces.PermissionKey.campaignsControllerWhitelist, account: self.owner!.address)
@@ -577,7 +638,7 @@ pub contract Web3Jam {
     }
 
     // Web3 Jam HQ information
-    pub resource Web3JamHQ: Web3JamInterfaces.Web3JamHQPublic, Web3JamInterfaces.Web3JamHQPrivate, Web3JamInterfaces.Web3JamPermissionTracker {
+    pub resource Web3JamHQ: Web3JamInterfaces.Web3JamHQPublic, Web3JamInterfaces.Web3JamHQPrivate, Permissions.Keeper {
         // permission keeper resource
         access(self) let permissionKeeper: @Permissions.PermissionsKeeper
         // current opening campaign ids
@@ -609,10 +670,12 @@ pub contract Web3Jam {
 
         // is some address whitedlisted for some white list key
         pub fun isWhitelisted(_ key: Web3JamInterfaces.PermissionKey, account: Address): Bool {
-            return self.hasPermission(key, account: account)
-        }
-        pub fun hasPermission(_ key: Web3JamInterfaces.PermissionKey, account: Address): Bool {
             return self.permissionKeeper.hasPermission(key.rawValue, account: account)
+        }
+        
+        // This is for the Permissions.Keeper
+        pub fun getPermissionsTracker(): &{Permissions.Tracker} {
+            return &self.permissionKeeper as &{Permissions.Tracker}
         }
 
         // --- Setters - Private Interfaces ---

@@ -3,6 +3,7 @@
 Web3Jam contract interfaces or structs
 */
 
+import NonFungibleToken from "./standard/NonFungibleToken.cdc"
 import MetadataViews from "./standard/MetadataViews.cdc"
 import StateMachine from "./StateMachine.cdc"
 
@@ -116,22 +117,15 @@ pub contract Web3JamInterfaces {
     }
 
     // Award
-    pub struct Award {
+    pub struct AwardInfo {
         pub let project: ProjectIdentifier
         pub let prizeName: String
         pub var claimed: Bool
-        pub var claimedNFTId: UInt64?
 
-        init(_ project: ProjectIdentifier, _ prizeName: String) {
+        init(project: ProjectIdentifier, prizeName: String, claimed: Bool) {
             self.project = project
             self.prizeName = prizeName
-            self.claimed = false
-            self.claimedNFTId = nil
-        }
-
-        pub fun setClaimed(_ nftId: UInt64) {
-            self.claimed = true
-            self.claimedNFTId = nftId
+            self.claimed = claimed
         }
     }
 
@@ -186,10 +180,6 @@ pub contract Web3JamInterfaces {
         pub fun isMaintainer(_ account: Address): Bool
     }
 
-    pub resource interface Web3JamPermissionTracker {
-        pub fun hasPermission(_ key: PermissionKey, account: Address): Bool
-    }
-
     pub resource interface CampaignMaintainer {
         // Public Setter
         pub fun addSponsors(sponsorsToAdd: [Sponsor])
@@ -212,10 +202,8 @@ pub contract Web3JamInterfaces {
     }
 
     pub resource interface CampaignJudge {
-        // Public Getters
-
-        // Public Setter
-
+        // Account Getters
+        access(account) fun getAssignedProjects(judge: Address): [UInt64]
     }
 
     pub resource interface CampaignPublic {
@@ -223,6 +211,7 @@ pub contract Web3JamInterfaces {
         pub fun getIDs(): [UInt64]
         pub fun getProject(projectID: UInt64): &{ProjectPublic, MetadataViews.Resolver}?
         pub fun getPrizes(): [PrizeInfo]
+        pub fun getWinners(): {String: AwardInfo}
 
         pub fun getCurrentState(): String
 
@@ -242,30 +231,40 @@ pub contract Web3JamInterfaces {
 
     pub resource interface ProjectMaintainer {
         // Public Setter
+        pub fun updateBasics(name: String, description: String, image: String)
+        pub fun updateTags(tags: [Web3JamInterfaces.Tag])
+        
+        pub fun approveApplicant(account: Address)
+        pub fun addMembers(accounts: [Address])
 
+        pub fun updateDelivery(_ data: {String: AnyStruct})
     }
 
     pub resource interface ProjectMember {
-        // Public Getters
-
         // Public Setter
-
+        access(account) fun claimAward(account: Address): @NonFungibleToken.NFT?
     }
 
     pub resource interface ProjectJudge {
         // Public Getters
 
         // Public Setter
-
+        // TODO
     }
 
     pub resource interface ProjectPublic {
         // Public Getters
         pub fun getCampaign(): &{CampaignPublic, MetadataViews.Resolver}
+        pub fun getMembers(): [&{Web3JamInterfaces.AccessVoucherPublic}]
+        pub fun getApplicants(): [&{Web3JamInterfaces.AccessVoucherPublic}]
+
         pub fun getCurrentState(): String
 
         // permission check
         pub fun hasJoined(account: Address): Bool
+
+        // Account Setters
+        access(account) fun applyFor(account: Address)
     }
 
     pub resource interface AccessVoucherPrivate {
@@ -276,9 +275,7 @@ pub contract Web3JamInterfaces {
 
     pub resource interface AccessVoucherPublic {
         // Public Getters
-
-        // Account Setters
-
+        pub fun getAddress(): Address
+        pub fun getMetadata(): {String: AnyStruct}
     }
-
 }

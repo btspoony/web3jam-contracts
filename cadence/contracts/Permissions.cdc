@@ -25,7 +25,11 @@ pub contract Permissions {
         pub fun setPermission(_ key: UInt8, account: Address, whitelisted: Bool)
     }
 
-    pub resource PermissionsKeeper: Setter, Tracker {
+    pub resource interface Keeper {
+        pub fun getPermissionsTracker(): &{Tracker}
+    }
+
+    pub resource PermissionsKeeper: Setter, Tracker, Keeper {
         access(self) let resouceIdentifier: String
         access(self) let permissionsIdentifier: String
         // permission map of all accounts
@@ -86,6 +90,11 @@ pub contract Permissions {
                 }
             }
             return permissions
+        }
+
+        // get permission tracker
+        pub fun getPermissionsTracker(): &{Tracker} {
+            return &self as &{Tracker}
         }
     }
 
