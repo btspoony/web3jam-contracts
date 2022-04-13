@@ -187,6 +187,10 @@ pub contract Web3JamInterfaces {
         pub fun getProject(projectID: UInt64): &{ProjectPublic, MetadataViews.Resolver}?
         pub fun getCurrentState(): String
 
+        // permission check
+        pub fun hasJoined(account: Address): Bool
+
+        // contents
         pub fun getSponsor(idx: UInt64): Sponsor?
         pub fun getAvailableSponsors(): [Sponsor]
         pub fun getTag(type: TagType,  idx: UInt64): Tag?
@@ -219,6 +223,9 @@ pub contract Web3JamInterfaces {
         // Public Getters
         pub fun getCampaign(): &{CampaignPublic, MetadataViews.Resolver}
 
+        // permission check
+        pub fun hasJoined(account: Address): Bool
+
         // Account Setters
         access(account) fun join(account: Address)
     }
@@ -233,6 +240,7 @@ pub contract Web3JamInterfaces {
         // Public Getters
 
         // Account Setters
+
     }
 
 }
