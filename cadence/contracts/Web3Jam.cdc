@@ -223,6 +223,32 @@ pub contract Web3Jam {
         pub fun updateDelivery(_ data: {String: AnyStruct}) {
             // TODO
         }
+
+        // --- Getters - Contract Only ---
+
+        access(account) fun checkAndBorrowMaintainerRef(account: Address): &{Web3JamInterfaces.ProjectMaintainer} {
+            pre {
+                self.permissionKeeper.hasPermission(Web3JamInterfaces.PermissionKey.projectMaintainer.rawValue, account: account)
+                    : "No Maintainer permission."
+            }
+            return &self as &{Web3JamInterfaces.ProjectMaintainer}
+        }
+
+        access(account) fun checkAndBorrowMemberRef(account: Address): &{Web3JamInterfaces.ProjectMember} {
+            pre {
+                self.permissionKeeper.hasPermission(Web3JamInterfaces.PermissionKey.projectMember.rawValue, account: account)
+                    : "No Member permission."
+            }
+            return &self as &{Web3JamInterfaces.ProjectMember}
+        }
+
+        access(account) fun checkAndBorrowJudgeRef(account: Address): &{Web3JamInterfaces.ProjectJudge} {
+            pre {
+                self.permissionKeeper.hasPermission(Web3JamInterfaces.PermissionKey.projectJudge.rawValue, account: account)
+                    : "No Judge permission."
+            }
+            return &self as &{Web3JamInterfaces.ProjectJudge}
+        }
         
         // --- Setters - Contract Only ---
 
@@ -488,6 +514,30 @@ pub contract Web3Jam {
         access(account) fun getAssignedProjects(judge: Address): [UInt64] {
             // TODO
             return []
+        }
+
+        access(account) fun checkAndBorrowMaintainerRef(account: Address): &{Web3JamInterfaces.CampaignMaintainer} {
+            pre {
+                self.permissionKeeper.hasPermission(Web3JamInterfaces.PermissionKey.campaignMaintainer.rawValue, account: account)
+                    : "No Maintainer permission."
+            }
+            return &self as &{Web3JamInterfaces.CampaignMaintainer}
+        }
+
+        access(account) fun checkAndBorrowParticipantRef(account: Address): &{Web3JamInterfaces.CampaignParticipant} {
+            pre {
+                self.permissionKeeper.hasPermission(Web3JamInterfaces.PermissionKey.campaignParticipant.rawValue, account: account)
+                    : "No Participant permission."
+            }
+            return &self as &{Web3JamInterfaces.CampaignParticipant}
+        }
+
+        access(account) fun checkAndBorrowJudgeRef(account: Address): &{Web3JamInterfaces.CampaignJudge} {
+            pre {
+                self.permissionKeeper.hasPermission(Web3JamInterfaces.PermissionKey.campaignJudge.rawValue, account: account)
+                    : "No Judge permission."
+            }
+            return &self as &{Web3JamInterfaces.CampaignJudge}
         }
 
         // --- Setters - Contract Only ---

@@ -74,6 +74,16 @@ pub contract Web3JamParticipant {
             return self.metadata
         }
 
+        pub fun getCampaignPermissions(campaign: Web3JamInterfaces.CampaignIdentifier): [Web3JamInterfaces.PermissionKey] {
+            // TODO
+            return []
+        }
+
+        pub fun getProjectPermissions(project: Web3JamInterfaces.ProjectIdentifier): [Web3JamInterfaces.PermissionKey] {
+            // TODO
+            return []
+        }
+
         // --- Setters - Private Interfaces ---
 
         // Update the metadata
@@ -88,20 +98,22 @@ pub contract Web3JamParticipant {
         }
 
         // access voucher to join a campaign
-        pub fun participateCampaign(campaign: &{Web3JamInterfaces.CampaignPublic, MetadataViews.Resolver}) {
-            let address = self.owner!.address
-            assert(!campaign.hasJoined(account: address), message: "You have been joined to the campaign.")
+        pub fun participateCampaign(campaign: Web3JamInterfaces.CampaignIdentifier) {
+            // TODO
 
-            // join to campaign
-            campaign.participate(account: address)
+            // let address = self.owner!.address
+            // assert(!campaign.hasJoined(account: address), message: "You have been joined to the campaign.")
 
-            let idType = Type<Web3JamInterfaces.CampaignIdentifier>()
-            let identifier = campaign.resolveView(idType) ?? panic("Failed to resolve identifier view")
-            self.joinedCompaigns.append(identifier as! Web3JamInterfaces.CampaignIdentifier)
+            // // join to campaign
+            // campaign.participate(account: address)
+
+            // let idType = Type<Web3JamInterfaces.CampaignIdentifier>()
+            // let identifier = campaign.resolveView(idType) ?? panic("Failed to resolve identifier view")
+            // self.joinedCompaigns.append(identifier as! Web3JamInterfaces.CampaignIdentifier)
         }
 
         // access voucher to join a project
-        pub fun applyForProject(project: &{Web3JamInterfaces.ProjectPublic, MetadataViews.Resolver}) {
+        pub fun applyForProject(project: Web3JamInterfaces.ProjectIdentifier) {
             // TODO
 
             // let address = self.owner!.address
@@ -121,9 +133,43 @@ pub contract Web3JamParticipant {
             // self.joinedProjects.append(identifier as! Web3JamInterfaces.ProjectIdentifier)
         }
 
-        // --- Setters - Contract Only ---
+        // campaign related
+        pub fun checkAndBorrowCampaignMaintainerRef(campaign: Web3JamInterfaces.CampaignIdentifier): &{Web3JamInterfaces.CampaignMaintainer} {
+            // TODO
+        }
+
+        pub fun checkAndBorrowCampaignParticipantRef(campaign: Web3JamInterfaces.CampaignIdentifier): &{Web3JamInterfaces.CampaignParticipant} {
+            // TODO
+        }
+
+        pub fun checkAndBorrowCampaignJudgeRef(campaign: Web3JamInterfaces.CampaignIdentifier): &{Web3JamInterfaces.CampaignJudge} {
+            // TODO
+        }
+
+        // project related
+        pub fun checkAndBorrowProjectMaintainerRef(project: Web3JamInterfaces.ProjectIdentifier): &{Web3JamInterfaces.ProjectMaintainer} {
+            // TODO
+        }
+
+        pub fun checkAndBorrowProjectMemberRef(project: Web3JamInterfaces.ProjectIdentifier): &{Web3JamInterfaces.ProjectMember} {
+            // TODO
+        }
+
+        pub fun checkAndBorrowProjectJudgeRef(project: Web3JamInterfaces.ProjectIdentifier): &{Web3JamInterfaces.ProjectJudge} {
+            // TODO
+        }
 
         // --- Self Only ---
+
+        access(self) fun getCampaign(campaign: Web3JamInterfaces.CampaignIdentifier): &{Web3JamInterfaces.CampaignPublic, MetadataViews.Resolver}? {
+            // TODO
+            return nil
+        }
+
+        access(self) fun getProject(project: Web3JamInterfaces.ProjectIdentifier): &{Web3JamInterfaces.ProjectPublic, MetadataViews.Resolver}? {
+            // TODO
+            return nil
+        }
     }
     
     // create an access voucher resource
