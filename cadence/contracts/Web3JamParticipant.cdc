@@ -112,38 +112,41 @@ pub contract Web3JamParticipant {
 
         // access voucher to join a campaign
         pub fun participateCampaign(campaign: Web3JamInterfaces.CampaignIdentifier) {
-            // TODO
+            let address = self.owner!.address
 
-            // let address = self.owner!.address
-            // assert(!campaign.hasJoined(account: address), message: "You have been joined to the campaign.")
+            let campaignRef = self.getCampaign(campaign: campaign) ?? panic("Failed to get campaign: ".concat(campaign.campaignId.toString()))
+            let tracker = campaignRef.getPermissionsTracker()
+            assert(
+                !tracker.hasPermission(Web3JamInterfaces.PermissionKey.campaignParticipant.rawValue, account: address),
+                message: "You have been joined to the campaign."
+            )
 
-            // // join to campaign
-            // campaign.participate(account: address)
-
-            // let idType = Type<Web3JamInterfaces.CampaignIdentifier>()
-            // let identifier = campaign.resolveView(idType) ?? panic("Failed to resolve identifier view")
-            // self.joinedCompaigns.append(identifier as! Web3JamInterfaces.CampaignIdentifier)
+            // participate in to campaign
+            campaignRef.participate(account: address)
+            // append to compaign
+            self.joinedCompaigns.append(campaign)
         }
 
         // access voucher to join a project
         pub fun applyForProject(project: Web3JamInterfaces.ProjectIdentifier) {
-            // TODO
+            let address = self.owner!.address
 
-            // let address = self.owner!.address
-            // assert(!project.hasJoined(account: address), message: "You have been joined to the project.")
+            let projectRef = self.getProject(project: project) ?? panic("Failed to get project: ".concat(project.projectId.toString()))
+            let tracker = projectRef.getPermissionsTracker()
+            assert(
+                !tracker.hasPermission(Web3JamInterfaces.PermissionKey.projectMember.rawValue, account: address),
+                message: "You have bean joined to the project."
+            )
 
-            // // ensure campaign joined
-            // let campaign = project.getCampaign()
-            // if !campaign.hasJoined(account: address) {
-            //     self.joinCampaign(campaign: campaign)
-            // }
+            // ensure campaign joined
+            let campaignRef = projectRef.getCampaign()
+            let campaignPermissionsTracker = campaignRef.getPermissionsTracker()
+            if !tracker.hasPermission(Web3JamInterfaces.PermissionKey.campaignParticipant.rawValue, account: address) {
+                self.participateCampaign(campaign: project.campaign)
+            }
 
-            // // join to project
-            // project.join(account: address)
-
-            // let idType = Type<Web3JamInterfaces.ProjectIdentifier>()
-            // let identifier = project.resolveView(idType) ?? panic("Failed to resolve identifier view")
-            // self.joinedProjects.append(identifier as! Web3JamInterfaces.ProjectIdentifier)
+            // apply for the project
+            projectRef.applyFor(account: address)
         }
 
         // campaign related
@@ -176,6 +179,13 @@ pub contract Web3JamParticipant {
         pub fun checkAndBorrowProjectJudgeRef(project: Web3JamInterfaces.ProjectIdentifier): &{Web3JamInterfaces.ProjectJudge} {
             let projectRef = self.getProject(project: project) ?? panic("Failed to get project: ".concat(project.projectId.toString()))
             return projectRef.checkAndBorrowJudgeRef(account: self.owner!.address)
+        }
+
+        // --- Setters - Contract Only ---
+
+        access(account) fun addToProject(project: Web3JamInterfaces.ProjectIdentifier) {
+            // append to project
+            self.joinedProjects.append(project)
         }
 
         // --- Self Only ---

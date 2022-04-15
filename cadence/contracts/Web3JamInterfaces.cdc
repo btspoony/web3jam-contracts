@@ -217,8 +217,6 @@ pub contract Web3JamInterfaces {
 
         pub fun getCurrentState(): String
 
-        pub fun hasJoined(account: Address): Bool
-
         // implement as Permissions.Keeper
         pub fun getPermissionsTracker(): &{Permissions.Tracker}
 
@@ -268,9 +266,6 @@ pub contract Web3JamInterfaces {
 
         pub fun getCurrentState(): String
 
-        // permission check
-        pub fun hasJoined(account: Address): Bool
-
         // implement as Permissions.Keeper
         pub fun getPermissionsTracker(): &{Permissions.Tracker}
 
@@ -309,5 +304,8 @@ pub contract Web3JamInterfaces {
 
         pub fun getCampaignPermissions(campaign: CampaignIdentifier): [PermissionKey]
         pub fun getProjectPermissions(project: ProjectIdentifier): [PermissionKey]
+        
+        // --- Account Setters ---
+        access(account) fun addToProject(project: Web3JamInterfaces.ProjectIdentifier)
     }
 }

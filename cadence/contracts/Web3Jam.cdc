@@ -186,11 +186,6 @@ pub contract Web3Jam {
             return self.fsm.currentState
         }
 
-        // has the account joined
-        pub fun hasJoined(account: Address): Bool {
-            return self.permissionKeeper.hasPermission(Web3JamInterfaces.PermissionKey.projectMember.rawValue, account: account)
-        }
-
         // get campaign inforamtion of the project
         pub fun getCampaign(): &{Web3JamInterfaces.CampaignPublic, MetadataViews.Resolver} {
             let controller = getAccount(self.host)
@@ -264,6 +259,11 @@ pub contract Web3Jam {
         }
 
         // --- Self Only ---
+        
+        // has the account joined
+        access(self) fun hasJoined(account: Address): Bool {
+            return self.permissionKeeper.hasPermission(Web3JamInterfaces.PermissionKey.projectMember.rawValue, account: account)
+        }
 
     }
 
@@ -410,11 +410,6 @@ pub contract Web3Jam {
             return self.fsm.currentState
         }
 
-        // has the account joined
-        pub fun hasJoined(account: Address): Bool {
-            return self.permissionKeeper.hasPermission(Web3JamInterfaces.PermissionKey.campaignParticipant.rawValue, account: account)
-        }
-
         // get a sponsor
         pub fun getSponsor(idx: UInt64): Web3JamInterfaces.Sponsor {
             return self.sponsors[idx]
@@ -554,6 +549,10 @@ pub contract Web3Jam {
 
         // --- Self Only ---
 
+        // has the account joined
+        access(self) fun hasJoined(account: Address): Bool {
+            return self.permissionKeeper.hasPermission(Web3JamInterfaces.PermissionKey.campaignParticipant.rawValue, account: account)
+        }
     }
 
     // Campaigns controller
