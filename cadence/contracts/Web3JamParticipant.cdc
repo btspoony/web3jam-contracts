@@ -5,6 +5,7 @@ Web3Jam Participant contract
 
 import MetadataViews from "./standard/MetadataViews.cdc"
 import Web3JamInterfaces from "./Web3JamInterfaces.cdc"
+import Web3Jam from "./Web3Jam.cdc"
 
 pub contract Web3JamParticipant {
 
@@ -75,13 +76,25 @@ pub contract Web3JamParticipant {
         }
 
         pub fun getCampaignPermissions(campaign: Web3JamInterfaces.CampaignIdentifier): [Web3JamInterfaces.PermissionKey] {
-            // TODO
-            return []
+            let campaignRef = self.getCampaign(campaign: campaign) ?? panic("Failed to get campaign: ".concat(campaign.campaignId.toString()))
+            let permissions = campaignRef.getPermissionsTracker().getPermissions(account: self.owner!.address)
+
+            let ret:[Web3JamInterfaces.PermissionKey] = []
+            for one in permissions {
+                ret.append(Web3JamInterfaces.PermissionKey(rawValue: one)!)
+            }
+            return ret
         }
 
         pub fun getProjectPermissions(project: Web3JamInterfaces.ProjectIdentifier): [Web3JamInterfaces.PermissionKey] {
-            // TODO
-            return []
+            let projectRef = self.getProject(project: project) ?? panic("Failed to get project: ".concat(project.projectId.toString()))
+            let permissions = projectRef.getPermissionsTracker().getPermissions(account: self.owner!.address)
+            
+            let ret:[Web3JamInterfaces.PermissionKey] = []
+            for one in permissions {
+                ret.append(Web3JamInterfaces.PermissionKey(rawValue: one)!)
+            }
+            return ret
         }
 
         // --- Setters - Private Interfaces ---
@@ -135,40 +148,54 @@ pub contract Web3JamParticipant {
 
         // campaign related
         pub fun checkAndBorrowCampaignMaintainerRef(campaign: Web3JamInterfaces.CampaignIdentifier): &{Web3JamInterfaces.CampaignMaintainer} {
-            // TODO
+            let campaignRef = self.getCampaign(campaign: campaign) ?? panic("Failed to get campaign: ".concat(campaign.campaignId.toString()))
+            return campaignRef.checkAndBorrowMaintainerRef(account: self.owner!.address)
         }
 
         pub fun checkAndBorrowCampaignParticipantRef(campaign: Web3JamInterfaces.CampaignIdentifier): &{Web3JamInterfaces.CampaignParticipant} {
-            // TODO
+            let campaignRef = self.getCampaign(campaign: campaign) ?? panic("Failed to get campaign: ".concat(campaign.campaignId.toString()))
+            return campaignRef.checkAndBorrowParticipantRef(account: self.owner!.address)
         }
 
         pub fun checkAndBorrowCampaignJudgeRef(campaign: Web3JamInterfaces.CampaignIdentifier): &{Web3JamInterfaces.CampaignJudge} {
-            // TODO
+            let campaignRef = self.getCampaign(campaign: campaign) ?? panic("Failed to get campaign: ".concat(campaign.campaignId.toString()))
+            return campaignRef.checkAndBorrowJudgeRef(account: self.owner!.address)
         }
 
         // project related
         pub fun checkAndBorrowProjectMaintainerRef(project: Web3JamInterfaces.ProjectIdentifier): &{Web3JamInterfaces.ProjectMaintainer} {
-            // TODO
+            let projectRef = self.getProject(project: project) ?? panic("Failed to get project: ".concat(project.projectId.toString()))
+            return projectRef.checkAndBorrowMaintainerRef(account: self.owner!.address)
         }
 
         pub fun checkAndBorrowProjectMemberRef(project: Web3JamInterfaces.ProjectIdentifier): &{Web3JamInterfaces.ProjectMember} {
-            // TODO
+            let projectRef = self.getProject(project: project) ?? panic("Failed to get project: ".concat(project.projectId.toString()))
+            return projectRef.checkAndBorrowMemberRef(account: self.owner!.address)
         }
 
         pub fun checkAndBorrowProjectJudgeRef(project: Web3JamInterfaces.ProjectIdentifier): &{Web3JamInterfaces.ProjectJudge} {
-            // TODO
+            let projectRef = self.getProject(project: project) ?? panic("Failed to get project: ".concat(project.projectId.toString()))
+            return projectRef.checkAndBorrowJudgeRef(account: self.owner!.address)
         }
 
         // --- Self Only ---
 
         access(self) fun getCampaign(campaign: Web3JamInterfaces.CampaignIdentifier): &{Web3JamInterfaces.CampaignPublic, MetadataViews.Resolver}? {
-            // TODO
-            return nil
+            let controller = getAccount(campaign.controller)
+                .getCapability(Web3Jam.CompaignsControllerPublicPath)
+                .borrow<&{Web3JamInterfaces.CampaignsControllerPublic}>()
+                ?? panic("Failed to get campaign controller.")
+            return controller.getCampaign(campaignID: campaign.campaignId)
         }
 
         access(self) fun getProject(project: Web3JamInterfaces.ProjectIdentifier): &{Web3JamInterfaces.ProjectPublic, MetadataViews.Resolver}? {
-            // TODO
-            return nil
+            let controller = getAccount(project.campaign.controller)
+                .getCapability(Web3Jam.CompaignsControllerPublicPath)
+                .borrow<&{Web3JamInterfaces.CampaignsControllerPublic}>()
+                ?? panic("Failed to get campaign controller.")
+            let campaign = controller.getCampaign(campaignID: project.campaign.campaignId)
+                ?? panic("Failed to get campaign: ".concat(project.campaign.campaignId.toString()))
+            return campaign.getProject(projectID: project.projectId)
         }
     }
     

@@ -161,6 +161,7 @@ pub contract Web3Jam {
             return nil
         }
 
+        // This is for the Permissions.Keeper
         pub fun getPermissionsTracker(): &{Permissions.Tracker} {
             return &self.permissionKeeper as &{Permissions.Tracker}
         } 

@@ -257,7 +257,7 @@ pub contract Web3JamInterfaces {
         // --- Public Getters ---
 
         // --- Public Setter ---
-        // TODO
+
     }
 
     pub resource interface ProjectPublic {
