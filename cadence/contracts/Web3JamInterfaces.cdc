@@ -204,7 +204,7 @@ pub contract Web3JamInterfaces {
 
     pub resource interface CampaignJudge {
         // --- Account Getters ---
-        access(account) fun getAssignedProjects(judge: Address): [UInt64]
+        access(account) fun getAssignedJudgingProjects(judge: Address): [UInt64]
     }
 
     pub resource interface CampaignPublic {
@@ -275,7 +275,7 @@ pub contract Web3JamInterfaces {
         access(account) fun checkAndBorrowJudgeRef(account: Address): &{ProjectJudge}
 
         // --- Account Setters ---
-        access(account) fun applyFor(account: Address)
+        access(account) fun applyFor(account: Capability<&{Web3JamInterfaces.AccessVoucherPublic}>)
     }
 
     pub resource interface AccessVoucherPrivate {

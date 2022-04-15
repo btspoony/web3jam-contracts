@@ -145,8 +145,9 @@ pub contract Web3JamParticipant {
                 self.participateCampaign(campaign: project.campaign)
             }
 
+            let cap = self.owner!.getCapability<&{Web3JamInterfaces.AccessVoucherPublic}>(Web3JamParticipant.AccessVoucherPublicPath)
             // apply for the project
-            projectRef.applyFor(account: address)
+            projectRef.applyFor(account: cap)
         }
 
         // campaign related

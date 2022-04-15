@@ -31,15 +31,18 @@ pub contract Web3Jam {
     pub event ContractInitialized()
 
     // --- Project Events ---
-    pub event ProjectCreated() // TODO
+    pub event ProjectCreated() // TODO(Event)
+    pub event ProjectMemberApplied() // TODO(Event)
+    pub event ProjectMemberJoined() // TODO(Event)
 
     // --- Campaign Events ---
     pub event CampaignCreated(id: UInt64, host: Address, name: String, description: String, image: String)
-    pub event CampaignStatusUpdated() // TODO
+    pub event CampaignStatusUpdated() // TODO(Event)
+    pub event CampaignParticipantJoined() // TODO(Event)
 
     // --- Campaigns Controller Events ---
-    pub event SponsorsAdded() // TODO
-    pub event TagsAdded() // TODO
+    pub event SponsorsAdded() // TODO(Event)
+    pub event TagsAdded() // TODO(Event)
 
     pub event CampaignsControllerCreated(serial: UInt64)
 
@@ -116,7 +119,7 @@ pub contract Web3Jam {
             // build project FSM
             self.fsm <- StateMachine.createFSM(
                 self.getType().identifier,
-                states: {}, // TODO build FSM detail
+                states: {}, // TODO(Build FSM detail)
                 start: "recruiting"
             )
 
@@ -131,7 +134,8 @@ pub contract Web3Jam {
 
             Web3Jam.totalProjects = Web3Jam.totalProjects + 1
 
-            emit ProjectCreated() // TODO fill Event data
+            // TODO(Event)
+            emit ProjectCreated()
         }
 
         destroy() {
@@ -209,11 +213,20 @@ pub contract Web3Jam {
         }
 
         pub fun approveApplicant(account: Address) {
-            // TODO
+            pre {
+                self.applicants.containsKey(account): account.toString().concat("Not be applied")
+            }
+            // add account to project
+            self.addToProject(account: account)
         }
 
         pub fun addMembers(accounts: [Address]) {
-            // TODO
+            pre {
+                accounts.length > 0: "accounts should be more then zero"
+            }
+            for account in accounts {
+                self.addToProject(account: account)
+            }
         }
 
         pub fun updateDelivery(_ data: {String: AnyStruct}) {
@@ -253,9 +266,17 @@ pub contract Web3Jam {
             return nil
         }
 
-        access(account) fun applyFor(account: Address) {
-            // TODO
-        //     self.permissionKeeper.setPermission(Web3JamInterfaces.PermissionKey.projectMember.rawValue, account: account, whitelisted: true)
+        access(account) fun applyFor(account: Capability<&{Web3JamInterfaces.AccessVoucherPublic}>) {
+            pre {
+                account.borrow() != nil: "No capability."
+                !self.applicants.containsKey(account.address): "Already applied."
+            }
+
+            // setup
+            self.applicants[account.address] = account
+
+            // TODO(Event)
+            emit ProjectMemberApplied()
         }
 
         // --- Self Only ---
@@ -263,6 +284,13 @@ pub contract Web3Jam {
         // has the account joined
         access(self) fun hasJoined(account: Address): Bool {
             return self.permissionKeeper.hasPermission(Web3JamInterfaces.PermissionKey.projectMember.rawValue, account: account)
+        }
+
+        access(self) fun addToProject(account: Address) {
+            //     self.permissionKeeper.setPermission(Web3JamInterfaces.PermissionKey.projectMember.rawValue, account: account, whitelisted: true)
+
+            // TODO(Event)
+            emit ProjectMemberJoined()
         }
 
     }
@@ -350,7 +378,7 @@ pub contract Web3Jam {
             // build campaign FSM
             self.fsm <- StateMachine.createFSM(
                 self.getType().identifier,
-                states: {}, // TODO build FSM detail
+                states: {}, // TODO(Build FSM detail)
                 start: "opening"
             )
 
@@ -507,7 +535,7 @@ pub contract Web3Jam {
         
         // --- Getters - Contract Only ---
 
-        access(account) fun getAssignedProjects(judge: Address): [UInt64] {
+        access(account) fun getAssignedJudgingProjects(judge: Address): [UInt64] {
             // TODO
             return []
         }
@@ -541,6 +569,9 @@ pub contract Web3Jam {
         // a new account to join the campaign
         access(account) fun participate(account: Address) {
             self.permissionKeeper.setPermission(Web3JamInterfaces.PermissionKey.campaignParticipant.rawValue, account: account, whitelisted: true)
+
+            // TODO(Event)
+            emit CampaignParticipantJoined()
         }
 
         access(account) fun joinProject(account: Address, projectID: UInt64) {
