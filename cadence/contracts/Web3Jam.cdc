@@ -212,15 +212,15 @@ pub contract Web3Jam {
             self.tags = tags
         }
 
-        pub fun approveApplicant(account: Address) {
+        pub fun approveApplicant(account: Capability<&{Web3JamInterfaces.AccessVoucherPublic}>) {
             pre {
-                self.applicants.containsKey(account): account.toString().concat("Not be applied")
+                self.applicants.containsKey(account.address): account.address.toString().concat(" not be applied")
             }
             // add account to project
             self.addToProject(account: account)
         }
 
-        pub fun addMembers(accounts: [Address]) {
+        pub fun addMembers(accounts: [Capability<&{Web3JamInterfaces.AccessVoucherPublic}>]) {
             pre {
                 accounts.length > 0: "accounts should be more then zero"
             }
@@ -286,8 +286,25 @@ pub contract Web3Jam {
             return self.permissionKeeper.hasPermission(Web3JamInterfaces.PermissionKey.projectMember.rawValue, account: account)
         }
 
-        access(self) fun addToProject(account: Address) {
-            //     self.permissionKeeper.setPermission(Web3JamInterfaces.PermissionKey.projectMember.rawValue, account: account, whitelisted: true)
+        access(self) fun addToProject(account: Capability<&{Web3JamInterfaces.AccessVoucherPublic}>) {
+            pre {
+                account.borrow() != nil: "No capability."
+                !self.members.containsKey(account.address): "Already be a member"
+            }
+
+            // remove from applicants
+            if self.applicants.containsKey(account.address) {
+                self.applicants.remove(key: account.address)
+            }
+            // add to project's memeber
+            self.members[account.address] = account
+            // set permission
+            self.permissionKeeper.setPermission(Web3JamInterfaces.PermissionKey.projectMember.rawValue, account: account.address, whitelisted: true)
+            // add to campaign' project
+            self.getCampaign().joinProject(account: account.address, projectID: self.id)
+            // update to access voucher
+            let voucher = account.borrow()!
+            voucher.addToProject(project: self.resolveView(Type<Web3JamInterfaces.ProjectIdentifier>()) as! Web3JamInterfaces.ProjectIdentifier)
 
             // TODO(Event)
             emit ProjectMemberJoined()

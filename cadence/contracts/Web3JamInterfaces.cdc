@@ -240,8 +240,8 @@ pub contract Web3JamInterfaces {
         pub fun updateBasics(name: String, description: String, image: String)
         pub fun updateTags(tags: [Web3JamInterfaces.Tag])
         
-        pub fun approveApplicant(account: Address)
-        pub fun addMembers(accounts: [Address])
+        pub fun approveApplicant(account: Capability<&{Web3JamInterfaces.AccessVoucherPublic}>)
+        pub fun addMembers(accounts: [Capability<&{Web3JamInterfaces.AccessVoucherPublic}>])
 
         pub fun updateDelivery(_ data: {String: AnyStruct})
     }
